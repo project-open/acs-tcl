@@ -8,6 +8,8 @@ ad_library {
     @cvs-id $Id$
 }
 
+namespace eval apm {}
+
 #####
 # Globals used by the package manager:
 #
@@ -750,6 +752,12 @@ ad_proc -public apm_parameter_update {
             max_n_values   = :max_n_values
       where parameter_id = :parameter_id
     }
+
+    db_dml object_title_update {
+	update acs_objects
+	set title = :parameter_name
+	where object_id = :parameter_id
+    }
     
     return $parameter_id
 }
@@ -793,10 +801,6 @@ ad_proc -public apm_parameter_register {
 
     # Update the cache.
     db_foreach apm_parameter_cache_update {
-	select v.package_id, p.parameter_name, nvl(p.default_value, v.attr_value) as attr_value
-	from apm_parameters p, apm_parameter_values v
-	where p.package_key = :package_key
-	and p.parameter_id = v.parameter_id (+)
     } {
 	ad_parameter_cache -set $attr_value $package_id $parameter_name
     }
@@ -922,7 +926,7 @@ ad_proc -public apm_interface_remove {interface_id} {
 	apm_package_version.remove_interface(
              interface_id => :interface_id
 	);
-	end;					        
+	end;
     }
 }
 
@@ -960,7 +964,9 @@ ad_proc -public apm_package_key_from_id {package_id} {
     return [util_memoize "apm_package_key_from_id_mem $package_id"]
 }
 
-proc apm_package_key_from_id_mem {package_id} {
+ad_proc -private apm_package_key_from_id_mem {package_id} {
+    unmemoized version of apm_package_key_from_id
+} {
     return [db_string apm_package_key_from_id {
 	select package_key from apm_packages where package_id = :package_id
     } -default ""]
@@ -976,7 +982,9 @@ ad_proc -public apm_instance_name_from_id {package_id} {
     return [util_memoize "apm_instance_name_from_id_mem $package_id"]
 }
 
-proc apm_instance_name_from_id_mem {package_id} {
+ad_proc -private apm_instance_name_from_id_mem {package_id} {
+    unmemoized version of apm_instance_name_from_id
+} {
     return [db_string apm_package_key_from_id {
 	select instance_name from apm_packages where package_id = :package_id
     } -default ""]
@@ -994,10 +1002,49 @@ ad_proc -public apm_package_id_from_key {package_key} {
     return [util_memoize "apm_package_id_from_key_mem $package_key"]
 }
 
-proc apm_package_id_from_key_mem {package_key} {
+ad_proc -private apm_package_id_from_key_mem {package_key} {
+    unmemoized version of apm_package_id_from_key
+} {
     return [db_string apm_package_id_from_key {
 	select package_id from apm_packages where package_key = :package_key
     } -default 0]
+}
+
+ad_proc -public apm_package_ids_from_key {
+    -package_key:required
+    -mounted:boolean
+} {
+    @param package_key The package key we are looking for the package
+    @param mounted Does the package have to be mounted?
+
+    @return List of package ids of all instances of the package.
+    Empty string 
+} {
+    return [util_memoize [list apm_package_ids_from_key_mem -package_key $package_key -mounted_p $mounted_p]]
+}
+
+ad_proc -private apm_package_ids_from_key_mem {
+    -package_key:required
+    {-mounted_p "0"}
+} {
+    unmemoized version of apm_package_ids_from_key
+} {
+    
+    if {$mounted_p} {
+	set package_ids [list]
+	db_foreach apm_package_ids_from_key {
+	    select package_id from apm_packages where package_key = :package_key
+	} {
+	    if {![string eq "" [site_node::get_node_id_from_object_id -object_id $package_id]]} {
+		lappend package_ids $package_id
+	    } 
+	}
+	return $package_ids
+    } else {
+	return [db_list apm_package_ids_from_key {
+	    select package_id from apm_packages where package_key = :package_key
+	}]
+    }
 }
 
 #
@@ -1005,18 +1052,15 @@ proc apm_package_id_from_key_mem {package_key} {
 #
 
 ad_proc -public apm_package_url_from_id {package_id} {
+    Will return the first url found for a given package_id
+
     @return The package url of the instance of the package.
-    only valid for singleton packages.
 } {
-    return [util_memoize "apm_package_url_from_id_mem $package_id"]
+    return [util_memoize [list apm_package_url_from_id_mem $package_id]]
 }
 
 ad_proc -private apm_package_url_from_id_mem {package_id} {
-    return [db_string apm_package_url_from_id {
-	select site_node.url(node_id) 
-          from site_nodes 
-         where object_id = :package_id
-    } -default ""]
+    return [db_string apm_package_url_from_id {*SQL*} -default {}]
 }
 
 #
@@ -1126,24 +1170,6 @@ ad_proc -private apm_post_instantiation_tcl_proc_from_key { package_key } {
 }
 
 
-ad_proc -public -deprecated -warn apm_package_create_instance {
-    {-package_id 0}
-    instance_name 
-    context_id 
-    package_key
-} {
-    Creates a new instance of a package. Deprecated - please use
-    apm_package_instance_new instead.
-
-    @see apm_package_instance_new
-} {    
-    return [apm_package_instance_new \
-            -package_key $package_key \
-            -instance_name $instance_name \
-            -package_id $package_id \
-            -context_id $context_id]
-}
-
 ad_proc -public apm_package_rename {
     {-package_id ""}
     {-instance_name:required}
@@ -1217,7 +1243,6 @@ ad_proc -public apm_get_callback_proc {
     if { [empty_string_p $version_id] } {
         set version_id [apm_version_id_from_package_key $package_key]
     }
-
     return [db_string select_proc {} -default ""]
 }
 
@@ -1259,6 +1284,7 @@ ad_proc -public apm_unused_callback_types {
 }
 
 ad_proc -public apm_invoke_callback_proc {
+    {-proc_name {}}
     {-version_id ""}
     {-package_key ""}
     {-arg_list {}}
@@ -1268,6 +1294,11 @@ ad_proc -public apm_invoke_callback_proc {
     for a given package version. Any errors during
     invocation are logged.
 
+    @param callback_proc if this is provided it is called 
+      instead of attempting to look up the proc via the package_key or version_id
+      (needed for before-install callbacks since the db is not populated when those 
+       are called).
+
     @return 1 if invocation
     was carried out successfully, 0 if no proc to invoke could
     be found. Will propagate any error thrown by the callback.
@@ -1276,11 +1307,13 @@ ad_proc -public apm_invoke_callback_proc {
 } {
     array set arg_array $arg_list
 
-    set proc_name [apm_get_callback_proc \
-                       -version_id $version_id \
-                       -package_key $package_key \
-                       -type $type]
-    
+    if {[empty_string_p $proc_name]} {
+        set proc_name [apm_get_callback_proc \
+                           -version_id $version_id \
+                           -package_key $package_key \
+                           -type $type]
+    }
+
     if { [empty_string_p $proc_name] } {
         if { [string equal $type "after-instantiate"] } {
             # We check for the old proc on format: package_key_post_instantiation package_id
@@ -1296,7 +1329,7 @@ ad_proc -public apm_invoke_callback_proc {
             $proc_name $arg_array(package_id)
 
             return 1
-            
+
         } else {
             # No other callback procs to fall back on
             return 0
@@ -1617,3 +1650,151 @@ ad_proc -private apm_application_new_checkbox {} {
 
     return $html_string
 }
+
+ad_proc -private apm::read_files {path file_list} {
+    Read the contents from a list of files at a certain path. Return
+    the data to the caller as a big string.
+} {
+    set data ""
+    foreach file $file_list {
+        if {![catch {set fp [open ${path}/${file} r]} err]} { 
+            append data [read $fp]
+            close $fp
+        }
+    }
+    return $data
+}
+
+ad_proc -public apm::metrics {
+    -package_key
+    -file_type
+    -array
+} {
+    Return some code metrics about the files in package $package_key. This
+    will return an array of 3 items: 
+    <ul>
+    <li>count - the number of files</li>
+    <li>lines - the number of lines in the files</li>
+    <li>procs - the number of procs, if applicable (0 if not applicable)</li>
+    </ul>
+    This will be placed in the array variable that is provided
+    to this proc.
+    <p>
+    Valid file_type's: 
+    <ul>
+    <li>data_model_pg - PG datamodel files</li>
+    <li>data_model_ora - Oracle datamodel files</li>
+    <li>include_page - ADP files in package_key/lib</li>
+    <li>content_page - ADP files in package_key/www</li>
+    <li>tcl_procs - TCL procs in package_key/tcl</li>
+    <li>test_procs - automated tests in package_key/tcl/test</li>
+    <li>documentation - docs in package_key/www/doc</li>
+    </ul>
+    
+    This proc is cached.
+
+    @author Vinod Kurup
+    @creation-date 2006-02-09
+
+    @param package_key The package_key of interest
+    @param file_type See options above
+    @param array variable to hold the array that will be returned
+} {
+    upvar $array metrics
+    array set metrics [util_memoize [list apm::metrics_internal $package_key $file_type]]
+}
+
+ad_proc -private apm::metrics_internal {
+    package_key
+    file_type
+} {
+    The cached version of apm::metrics
+
+    @see apm::metrics
+} {
+    array set metrics {}
+    set package_path [acs_package_root_dir $package_key]
+
+    # We'll be using apm_get_package_files to get a list of files
+    # by file type. 
+
+    switch $file_type {
+        data_model_pg -
+        data_model_ora {
+            set file_types [list data_model_create data_model]
+        }
+        default {
+            set file_types $file_type
+        }
+    }
+
+    set filelist [apm_get_package_files \
+                      -all_db_types \
+                      -package_key $package_key \
+                      -file_types $file_types]
+
+    # filelist needs to be weeded for certain file types
+    switch $file_type {
+        include_page -
+        content_page {
+            # weed out non-.adp files
+            set adp_files {}
+            foreach file $filelist {
+                if { [string match {*.adp} $file] } {
+                    lappend adp_files $file
+                }
+            }
+            set filelist $adp_files
+        }
+        data_model_pg {
+            # ignore drop and upgrade scripts
+            set pg_files {}
+            foreach file $filelist {
+                if { [string match {*/postgresql/*} $file] && ![string match *-drop.sql $file] && ![string match {*/upgrade/*} $file] } {
+                    lappend pg_files $file
+                } 
+            }
+            set filelist $pg_files
+        }
+        data_model_ora {
+            # ignore drop and upgrade scripts
+            set ora_files {}
+            foreach file $filelist {
+                if { [string match {*/oracle/*} $file] && ![string match *-drop.sql $file] && ![string match {*/upgrade/*} $file] } {
+                    lappend ora_files $file
+                }
+            }
+            set filelist $ora_files
+        }
+    }
+
+    # read the files, so we can count lines and grep for procs
+    set filedata [apm::read_files $package_path $filelist]
+
+    # The first 2 metrics are easy (file count and line count)
+    set metrics(count) [llength $filelist]
+    set metrics(lines) [llength [split $filedata \n]]
+
+    # extract procs, depending on the file_type
+    switch -exact $file_type {
+        tcl_procs {
+            set metrics(procs) [regexp -all -line {^\s*ad_proc} $filedata]
+        }
+        test_procs {
+            set metrics(procs) [regexp -all -line {^\s*aa_register_case} $filedata]
+        }
+        data_model_pg {
+            set metrics(procs) [regexp -all -line -nocase {^\s*create\s+or\s+replace\s+function\s+} $filedata]
+        }
+        data_model_ora {
+            set metrics(procs) [expr [regexp -all -line -nocase {^\s+function\s+} $filedata] + [regexp -all -line -nocase {^\s+procedure\s+} $filedata]]
+        }
+        default {
+            # other file-types don't have procs
+            set metrics(procs) 0
+        }
+    }
+    
+    return [array get metrics]
+}
+

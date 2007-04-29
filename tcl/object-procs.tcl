@@ -10,6 +10,16 @@ ad_library {
 
 namespace eval acs_object {}
 
+ad_proc -private acs_lookup_magic_object_no_cache { name } {
+    Non memoized version of acs_magic_object.
+
+    @return the magic object's object ID 
+
+    @see acs_magic_object
+} {
+    return [db_string magic_object_select {} ]
+}
+
 ad_proc -private acs_lookup_magic_object { name } {
     Non memoized version of acs_magic_object.
 
@@ -17,9 +27,7 @@ ad_proc -private acs_lookup_magic_object { name } {
 
     @see acs_magic_object
 } {
-    return [db_string magic_object_select {
-	select object_id from acs_magic_objects where name = :name
-    }]
+    return [util_memoize [list acs_lookup_magic_object_no_cache $name]]
 }
 
 ad_proc -public acs_magic_object { name } {
@@ -60,7 +68,7 @@ ad_proc -public acs_object::get {
 } {
     Gets information about an acs_object.
 
-    Returns object_id, object_type, context_id, security_inherit_p, 
+    Returns object_id, package_id, object_type, context_id, security_inherit_p, 
     creation_user, creation_date_ansi, creation_ip, last_modified_ansi,
     modifying_user, modifying_ip, tree_sortkey,  object_name
 
@@ -88,3 +96,26 @@ ad_proc -public acs_object::get_element {
     return $row($element)
 }
 
+ad_proc -public acs_object::package_id {
+    {-object_id:required}
+} {
+    Gets the package_id of the object
+
+    @author Malte Sussdorff (malte.sussdorff@cognovis.de)
+    @creation-date 2006-08-10
+    
+    @param object_id the object to get the package_id for
+    
+    @return package_id of the object. Empty string if the package_id is not stored
+} {
+    return [db_string get_package_id {} -default ""]
+}
+
+ad_proc -public acs_object::set_context_id {
+    {-object_id:required}
+    {-context_id:required}
+} {
+    Sets the context_id of the specified object.
+} {
+    db_dml update_context_id {}
+}

@@ -159,40 +159,6 @@ proc_doc check_for_form_variable_naughtiness {
 }
 
 
-ad_proc -deprecated -warn set_form_variables {{error_if_not_found_p 1}} {
-    use ad_page_contract for this functionality
-    @see ad_page_contract 
-} { 
-    if { $error_if_not_found_p == 1} {
-	uplevel { if { [ns_getform] == "" } {
-	    ns_returnerror 500 "Missing form data"
-	    return
-	}
-       }
-     } else {
-	 uplevel { if { [ns_getform] == "" } {
-	     # we're not supposed to barf at the user but we want to return
-	     # from this subroutine anyway because otherwise we'd get an error
-	     return
-	 }
-     }
-  }
-
-    # at this point we know that the form is legal
-    # The variable names are prefixed with a V to avoid confusion with the form variables while checking for naughtiness.
-    uplevel {
-	set Vform [ns_getform] 
-	set Vform_size [ns_set size $Vform]
-	set Vform_counter_i 0
-	while {$Vform_counter_i<$Vform_size} {
-	    set Vname [ns_set key $Vform $Vform_counter_i]
-	    set Vvalue [ns_set value $Vform $Vform_counter_i]
-	    check_for_form_variable_naughtiness $Vname $Vvalue
-	    set $Vname $Vvalue
-	    incr Vform_counter_i
-	}
-    }
-}
 
 ad_proc -private DoubleApos {string} {
     if the user types "O'Malley" and you try to insert that into an SQL
@@ -209,120 +175,6 @@ ad_proc -private DoubleApos {string} {
 }
 
 
-
-ad_proc -deprecated -warn set_form_variables_string_trim_DoubleAposQQ {} {
-    if the user types "O'Malley" and you try to insert that into an SQL
-    database, you will lose big time because the single quote is magic
-    in SQL and the insert has to look like 'O''Malley'.  This function
-    also trims white space off the ends of the user-typed data.
-
-    if the form looked like
-    &lt;input type=text name=yow&gt; and &lt;input type=text name=bar&gt;
-    then after you run this function you'll have Tcl vars 
-    $QQfoo and $QQbar set to whatever the user typed in the form
-    plus an extra single quote in front of the user's single quotes
-    and maybe some missing white space
-
-    @see ad_page_contract
-} { 
-    #The variable names are prefixed with a V to avoid confusion with the form variables while checking for naughtiness.
-    uplevel {
-	set Vform [ns_getform] 
-	if {$Vform == ""} {
-	    ns_returnerror 500 "Missing form data"
-	    return;
-	}
-	set Vform_size [ns_set size $Vform]
-	set Vform_counter_i 0
-	while {$Vform_counter_i<$Vform_size} {
-	    set Vname [ns_set key $Vform $Vform_counter_i]
-	    set Vvalue [ns_set value $Vform $Vform_counter_i]
-	    check_for_form_variable_naughtiness $Vname $Vvalue
-	    set QQ$Vname [DoubleApos [string trim $Vvalue]]
-	    incr Vform_counter_i
-	}
-    }
-}
-
-# this one does both the regular and the QQ
-
-ad_proc -deprecated -warn set_the_usual_form_variables {{error_if_not_found_p 1}} {
-    use ad_page_contract for this functionality
-
-    @see ad_page_contract 
-} { 
-    if { [ns_getform] == "" } {
-	if $error_if_not_found_p {
-	    uplevel { 
-		ns_returnerror 500 "Missing form data"
-		return
-	    }
-	} else {
-	    return
-	}
-    }
-
-    # The variable names are prefixed with a V to avoid confusion with the form variables while checking for naughtiness.
-    uplevel {
-	set Vform [ns_getform] 
-	set Vform_size [ns_set size $Vform]
-	set Vform_counter_i 0
-	while {$Vform_counter_i<$Vform_size} {
-	    set Vname [ns_set key $Vform $Vform_counter_i]
-	    set Vvalue [ns_set value $Vform $Vform_counter_i]
-	    check_for_form_variable_naughtiness $Vname $Vvalue
-	    set QQ$Vname [DoubleApos [string trim $Vvalue]]
-	    set $Vname $Vvalue
-	    incr Vform_counter_i
-	}
-    }
-}
-
-ad_proc -deprecated -warn set_form_variables_string_trim_DoubleApos {} {
-    use ad_page_contract for this functionality
-    @see ad_page_contract 
-} { 
-    # The variable names are prefixed with a V to avoid confusion with the form variables while checking for naughtiness.
-    uplevel {
-	set Vform [ns_getform] 
-	if {$Vform == ""} {
-	    ns_returnerror 500 "Missing form data"
-	    return;
-	}
-	set Vform_size [ns_set size $Vform]
-	set Vform_counter_i 0
-	while {$Vform_counter_i<$Vform_size} {
-	    set Vname [ns_set key $Vform $Vform_counter_i]
-	    set Vvalue [ns_set value $Vform $Vform_counter_i]
-	    check_for_form_variable_naughtiness $Vname $Vvalue
-	    set $Vname [DoubleApos [string trim $Vvalue]]
-	    incr Vform_counter_i
-	}
-    }
-}
-
-ad_proc -deprecated -warn set_form_variables_string_trim {} {
-    use ad_page_contract for this functionality
-    @see ad_page_contract 
-} { 
-    # The variable names are prefixed with a V to avoid confusion with the form variables while checking for naughtiness.
-    uplevel {
-	set Vform [ns_getform] 
-	if {$Vform == ""} {
-	    ns_returnerror 500 "Missing form data"
-	    return;
-	}
-	set Vform_size [ns_set size $Vform]
-	set Vform_counter_i 0
-	while {$Vform_counter_i<$Vform_size} {
-	    set Vname [ns_set key $Vform $Vform_counter_i]
-	    set Vvalue [ns_set value $Vform $Vform_counter_i]
-	    check_for_form_variable_naughtiness $Vname $Vvalue
-	    set $Vname [string trim $Vvalue]
-	    incr Vform_counter_i
-	}
-    }
-}
 
 # debugging kludges
 
@@ -501,7 +353,7 @@ proc util_PrettyBoolean {t_or_f { default  "default" } } {
 }
 
 proc_doc util_PrettyTclBoolean {zero_or_one} "Turns a 1 (or anything else that makes a Tcl IF happy) into Yes; anything else into No" {
-    if $zero_or_one {
+  if {$zero_or_one} {
 	return "Yes"
     } else {
 	return "No"
@@ -971,7 +823,7 @@ ad_proc -public export_vars {
 	set export_string [join $export_list "&"]
     } else {
 	for { set i 0 } { $i < $export_size } { incr i } {
-	    append export_string "<input type=\"hidden\" name=\"[ad_quotehtml [ns_set key $export_set $i]]\" value=\"[ad_quotehtml "[ns_set value $export_set $i]"]\" />\n"
+	    append export_string "<input type=\"hidden\" name=\"[ad_quotehtml [ns_set key $export_set $i]]\" value=\"[ad_quotehtml "[ns_set value $export_set $i]"]\" >\n"
 	}
     }
 
@@ -1145,7 +997,7 @@ doc_body_append [ad_export_vars -override { order_by $new_order_by } $my_vars]</
 	set export_list [list]
 	foreach varname [array names export] {
 	    lappend export_list "<input type=\"hidden\" name=\"[ad_quotehtml $varname]\"\
-		    value=\"[ad_quotehtml $export($varname)]\" />"
+		    value=\"[ad_quotehtml $export($varname)]\" >"
 	}
 	return [join $export_list \n]
     }
@@ -1191,15 +1043,15 @@ ad_proc -deprecated export_form_vars {
 	    switch $type {
 		multiple {
 		    foreach item $value {
-			append hidden "<input type=\"hidden\" name=\"[ad_quotehtml $var]\" value=\"[ad_quotehtml $item]\" />\n"
+			append hidden "<input type=\"hidden\" name=\"[ad_quotehtml $var]\" value=\"[ad_quotehtml $item]\" >\n"
 		    }
 		}
 		default {
-		    append hidden "<input type=\"hidden\" name=\"[ad_quotehtml $var]\" value=\"[ad_quotehtml $value]\" />\n"
+		    append hidden "<input type=\"hidden\" name=\"[ad_quotehtml $var]\" value=\"[ad_quotehtml $value]\" >\n"
 		}
 	    }
 	    if { $sign_p } {
-		append hidden "<input type=\"hidden\" name=\"[ad_quotehtml "$var:sig"]\" value=\"[ad_quotehtml [ad_sign $value]]\" />\n"
+		append hidden "<input type=\"hidden\" name=\"[ad_quotehtml "$var:sig"]\" value=\"[ad_quotehtml [ad_sign $value]]\" >\n"
 	    }
 	}
     }
@@ -1222,7 +1074,7 @@ ad_proc -public export_entire_form {} {
 	for {set i 0} {$i<[ns_set size $the_form]} {incr i} {
 	    set varname [ns_set key $the_form $i]
 	    set varvalue [ns_set value $the_form $i]
-	    append hidden "<input type=\"hidden\" name=\"[ad_quotehtml $varname]\" value=\"[ad_quotehtml $varvalue]\" />\n"
+	    append hidden "<input type=\"hidden\" name=\"[ad_quotehtml $varname]\" value=\"[ad_quotehtml $varvalue]\" >\n"
 	}
     }
     return $hidden
@@ -1267,7 +1119,7 @@ ad_proc export_ns_set_vars {{format "url"} {exclusion_list ""} {setid ""}} {
     if {$format == "url"} {
         return [join $return_list "&"]
     } else {
-        return "<input type=\"hidden\" [join $return_list " />\n <input type=\"hidden\" "] />"
+        return "<input type=\"hidden\" [join $return_list " />\n <input type=\"hidden\" "] >"
     }
 }
 
@@ -1761,252 +1613,6 @@ proc_doc util_escape_quotes_for_csv {string} "Returns its argument with double q
 }
 
 
-ad_proc -deprecated -warn ad_page_variables {variable_specs} {
-    use ad_page_contract now.
-
-<pre>
-Current syntax:
-
-    ad_page_variables {var_spec1 [varspec2] ... }
-
-    This proc handles translating form inputs into Tcl variables, and checking
-    to see that the correct set of inputs was supplied.  Note that this is mostly a
-    check on the proper programming of a set of pages.
-
-Here are the recognized var_specs:
-
-    variable				; means it's required
-    {variable default-value}
-      Optional, with default value.  If the value is supplied but is null, and the
-      default-value is present, that value is used.
-    {variable -multiple-list}
-      The value of the Tcl variable will be a list containing all of the
-      values (in order) supplied for that form variable.  Particularly useful
-      for collecting checkboxes or select multiples.
-      Note that if required or optional variables are specified more than once, the
-      first (leftmost) value is used, and the rest are ignored.
-    {variable -array}
-      This syntax supports the idiom of supplying multiple form variables of the
-      same name but ending with a "_[0-9]", e.g., foo_1, foo_2.... Each value will be
-      stored in the array variable variable with the index being whatever follows the
-      underscore.
-
-QQ variables are automatically created by ad_page_variables.
-
-Other elements of the var_spec are ignored, so a documentation string
-describing the variable can be supplied.
-
-Note that the default value form will become the value form in a "set"
-
-Note that the default values are filled in from left to right, and can depend on
-values of variables to their left:
-ad_page_variables {
-    file
-    {start 0}
-    {end {[expr $start + 20]}}
-}
-</pre>
-    @see ad_page_contract
-} {
-    set exception_list [list]
-    set form [ns_getform]
-    if { $form != "" } {
-	set form_size [ns_set size $form]
-	set form_counter_i 0
-
-	# first pass -- go through all the variables supplied in the form
-	while {$form_counter_i<$form_size} {
-	    set variable [ns_set key $form $form_counter_i]
-	    set value [ns_set value $form $form_counter_i]
-	    check_for_form_variable_naughtiness $variable $value
-	    set found "not"
-	    # find the matching variable spec, if any
-	    foreach variable_spec $variable_specs {
-		if { [llength $variable_spec] >= 2 } {
-		    switch -- [lindex $variable_spec 1] {
-			-multiple-list {
-			    if { [lindex $variable_spec 0] == $variable } {
-				# variable gets a list of all the values
-				upvar 1 $variable var
-				lappend var $value
-				set found "done"
-				break
-			    }
-			}
-			-array {
-			    set varname [lindex $variable_spec 0]
-			    set pattern "($varname)_(.+)"
-			    if { [regexp $pattern $variable match array index] } {
-				if { ![empty_string_p $array] } {
-				    upvar 1 $array arr
-				    set arr($index) [ns_set value $form $form_counter_i]
-				}
-				set found "done"
-				break
-			    }
-			}
-			default {
-			    if { [lindex $variable_spec 0] == $variable } {
-				set found "set"
-				break
-			    }
-			}
-		    }
-		} elseif { $variable_spec == $variable } {
-		    set found "set"
-		    break
-		}
-	    }
-	    if { $found == "set" } {
-		upvar 1 $variable var
-		if { ![info exists var] } {
-		    # take the leftmost value, if there are multiple ones
-		    set var $value
-		}
-	    }
-	    incr form_counter_i
-	}
-    }
-
-    # now make a pass over each variable spec, making sure everything required is there
-    # and doing defaulting for unsupplied things that aren't required
-    foreach variable_spec $variable_specs {
-	set variable [lindex $variable_spec 0]
-	upvar 1 $variable var
-
-	if { [llength $variable_spec] >= 2 } {
-	    if { ![info exists var] } {
-		set default_value_or_flag [lindex $variable_spec 1]
-		
-		switch -- $default_value_or_flag {
-		    -array {
-			# don't set anything
-		    }
-		    -multiple-list {
-			set var [list]
-		    }
-		    default {
-			# Needs to be set.
-			uplevel [list eval set $variable "\[subst [list $default_value_or_flag]\]"]
-			# This used to be:
-			#
-			#   uplevel [list eval [list set $variable "$default_value_or_flag"]]
-			#
-			# But it wasn't properly performing substitutions.
-		    }
-		}
-	    }
-
-	    # no longer needed because we QQ everything by default now
-	    #	    # if there is a QQ or qq or any variant after the var_spec,
-	    #	    # make a "QQ" variable
-	    #	    if { [regexp {^[Qq][Qq]$} [lindex $variable_spec 2]] && [info exists var] } {
-	    #		upvar QQ$variable QQvar
-	    #		set QQvar [DoubleApos $var]
-	    #	    }
-
-	} else {
-	    if { ![info exists var] } {
-		lappend exception_list "\"$variable\" required but not supplied"
-	    }
-	}
-
-        # modified by rhs@mit.edu on 1/31/2000
-	# to QQ everything by default (but not arrays)
-        if {[info exists var] && ![array exists var]} {
-	    upvar QQ$variable QQvar
-	    set QQvar [DoubleApos $var]
-	}
-
-    }
-
-    set n_exceptions [llength $exception_list]
-    # this is an error in the HTML form
-    if { $n_exceptions == 1 } {
-	ns_returnerror 500 [lindex $exception_list 0]
-	return -code return
-    } elseif { $n_exceptions > 1 } {
-	ns_returnerror 500 "<li>[join $exception_list "</li>\n<li>"]</li>\n"
-	return -code return
-    }
-}
-
-ad_proc -deprecated -warn page_validation {args} {
-    use ad_page_contract.
-    <p>
-    This proc allows page arg, etc. validation.  It accepts a bunch of
-    code blocks.  Each one is executed, and any error signalled is
-    appended to the list of exceptions.
-    Note that you can customize the complaint page to match the design of your site,
-    by changing the proc called to do the complaining:
-    it's [ad_parameter ComplainProc "" ad_return_complaint]
-
-    The division of labor between ad_page_variables and page_validation 
-    is that ad_page_variables
-    handles programming errors, and does simple defaulting, so that the rest of
-    the Tcl code doesn't have to worry about testing [info exists ...] everywhere.
-    page_validation checks for errors in user input.  For virtually all such tests,
-    there is no distinction between "unsupplied" and "null string input".
-
-    Note that errors are signalled using the Tcl "error" function.  This allows
-    nesting of procs which do the validation tests.  In addition, validation
-    functions can return useful values, such as trimmed or otherwise munged
-    versions of the input.
-
-    @see ad_page_contract
-} {
-    if { [info exists {%%exception_list}] } {
-	error "Something's wrong"
-    }
-    # have to put this in the caller's frame, so that sub_page_validation can see it
-    # that's because the "uplevel" used to evaluate the code blocks hides this frame
-    upvar {%%exception_list} {%%exception_list}
-    set {%%exception_list} [list]
-    foreach validation_block $args {
-	if { [catch {uplevel $validation_block} errmsg] } {
-	    lappend {%%exception_list} $errmsg
-	}
-    }
-    set exception_list ${%%exception_list}
-    unset {%%exception_list}
-    set n_exceptions [llength $exception_list]
-    if { $n_exceptions != 0 } {
-	set complain_proc [ad_parameter ComplainProc "" ad_return_complaint]
-	if { $n_exceptions == 1 } {
-	    $complain_proc $n_exceptions [lindex $exception_list 0]
-	} else {
-	    $complain_proc $n_exceptions "<li>[join $exception_list "</li>\n<li>"]</li>\n"
-	}
-	return -code return
-    }
-}
-
-ad_proc -public -deprecated sub_page_validation {args} {
-    use ad_page_contract.
-    <p>
-    Use this inside a page_validation block which needs to check more than one thing.
-    Put this around each part that might signal an error.
-
-    @see ad_page_contract
-} {
-    # to allow this to be at any level, we search up the stack for {%%exception_list}
-    set depth [info level]
-    for {set level 1} {$level <= $depth} {incr level} {
-	upvar $level {%%exception_list} {%%exception_list}
-	if { [info exists {%%exception_list}] } {
-	    break
-	}
-    }
-    if { ![info exists {%%exception_list}] } {
-	error "sub_page_validation not inside page_validation"
-    }
-    foreach validation_block $args {
-	if { [catch {uplevel $validation_block} errmsg] } {
-	    lappend {%%exception_list} $errmsg
-	}
-    }
-}
-
 ad_proc -deprecated validate_integer {field_name string} {
     Throws an error if the string isn't a decimal integer; otherwise
     strips any leading zeros (so this won't work for octals) and returns
@@ -2108,72 +1714,35 @@ ad_proc -private util_WriteWithExtraOutputHeaders {headers_so_far {first_part_of
     ns_write $entire_string_to_write
 }
 
-
 ad_proc -public ReturnHeaders {{content_type text/html}} {
-    we use this when we want to send out just the headers 
-    nd then do incremental ns_writes.  This way the user
-    doesn't have to wait like if you used a single ns_return
-} { 
-    set all_the_headers "HTTP/1.0 200 OK
-MIME-Version: 1.0
-Content-Type: $content_type\r\n"
-     util_WriteWithExtraOutputHeaders $all_the_headers
-     ns_startcontent -type $content_type
-}
+   We use this when we want to send out just the headers
+   and then do incremental writes with ns_write.  This way the user
+   doesn't have to wait for streamed output (useful when doing
+   bulk uploads, installs, etc.).
 
-
-ad_proc -deprecated -warn ReturnHeadersNoCache {{content_type text/html}} { 
-    Deprecated. just set [ad_conn outputheaders].
-    @see ad_conn
-} { 
-
-    ns_write "HTTP/1.0 200 OK
-MIME-Version: 1.0
-Content-Type: $content_type
-pragma: no-cache\r\n"
-
-     ns_startcontent -type $content_type
-}
-
-ad_proc -deprecated -warn ReturnHeadersWithCookie {cookie_content {content_type text/html}} {
-    Deprecated. just set [ad_conn outputheaders].
-    @see ad_conn
-} {    
-    ns_write "HTTP/1.0 200 OK
-MIME-Version: 1.0
-Content-Type: $content_type
-Set-Cookie:  $cookie_content\r\n"
-
-     ns_startcontent -type $content_type
-}
-
-ad_proc -deprecated -warn ReturnHeadersWithCookieNoCache {cookie_content {content_type text/html}} {
-    Deprecated. just set [ad_conn outputheaders].
-    @see ad_conn
-} {    
-
-    ns_write "HTTP/1.0 200 OK
-MIME-Version: 1.0
-Content-Type: $content_type
-Set-Cookie:  $cookie_content
-pragma: no-cache\r\n"
-
-     ns_startcontent -type $content_type
-}
-
-ad_proc -public ad_return_top_of_page {first_part_of_page {content_type text/html}} { 
-    Returns HTTP headers plus the top of the user-visible page.  Saves a
-    TCP packet (and therefore some overhead) compared to using
-    ReturnHeaders and an ns_write.
+   It returns status 200 and all headers including
+   any added to outputheaders.
 } {
-    set all_the_headers "HTTP/1.0 200 OK
+   set all_the_headers "HTTP/1.0 200 OK
 MIME-Version: 1.0
 Content-Type: $content_type\r\n"
     util_WriteWithExtraOutputHeaders $all_the_headers
+    if {[string match text/* $content_type]} {
+      if {![string match *charset=* $content_type]} {
+	append content_type \
+	    "; charset=[ns_config ns/parameters OutputCharset iso-8859-1]"
+      }
+      ns_startcontent -type $content_type
+    } else {
+      ns_startcontent
+    }
+}
 
-    ns_startcontent -type $content_type
-
-    if { ![empty_string_p $first_part_of_page] } {
+ad_proc -public ad_return_top_of_page {first_part_of_page {content_type text/html}} { 
+    Returns HTTP headers plus the top of the user-visible page.  
+} {
+    ReturnHeaders $content_type
+    if { $first_part_of_page ne "" } {
 	ns_write $first_part_of_page
     }
 }
@@ -2355,7 +1924,7 @@ ad_proc -public ad_set_cookie {
             append cookie "; Expires=Mon, 01-Jan-2035 01:00:00 GMT"
         }
     } elseif { $max_age != "" } {
-	append cookie "; Max-Age=$max_age"
+        append cookie "; Max-Age=$max_age; Expires=[util::cookietime [expr [ns_time] + $max_age]]"
     }
 
     if { [string equal $expire "t"] } {
@@ -2376,6 +1945,10 @@ ad_proc -public ad_set_cookie {
 ad_proc -private ad_run_scheduled_proc { proc_info } { 
     Runs a scheduled procedure and updates monitoring information in the shared variables. 
 } {
+    if {[ns_info name] eq "NaviServer"} {
+      set proc_info [lindex $proc_info 0]
+    }
+
     # Grab information about the scheduled procedure.
     set thread [lindex $proc_info 0]
     set once [lindex $proc_info 1]
@@ -2489,7 +2062,12 @@ ad_proc -public ad_schedule_proc {
     }
 }
 
-ad_proc -deprecated util_ReturnMetaRefresh { url { seconds_delay 0 }} {
+ad_proc util_ReturnMetaRefresh { url { seconds_delay 0 } } {
+    Ugly workaround to deal with IE5.0 bug handling
+    multipart/form-data using                                                                                  
+    Meta Refresh page instead of a redirect.                                                                                                                   
+    
+} {
     ReturnHeaders
     ns_write "
     <head>
@@ -2564,7 +2142,7 @@ ad_proc -public ad_cache_returnredirect { url { persistent "f" } { excluded_vars
 # branimir 2000/04/25 ad_returnredirect and helper procs :
 #    util_complete_url_p util_absolute_path_p util_current_location
 #    util_current_directory   
-# See: http://www.arsdigita.com/bboard/q-and-a-fetch-msg.tcl?msg_id=0003eV
+# See: http://rhea.redhat.com/bboard-archive/acs_design/0003eV.html
 
 ad_proc -public ad_returnredirect {
     {-message {}}
@@ -2597,6 +2175,12 @@ ad_proc -public ad_returnredirect {
     @see util_user_message
     @see ad_script_abort
 } {
+    if { [string is false $html_p] } {
+      	util_user_message -message $message
+    } else {
+      	util_user_message -message $message -html
+    }
+
     if { [util_complete_url_p $target_url] } {
         # http://myserver.com/foo/bar.tcl style - just pass to ns_returnredirect
         set url $target_url
@@ -2624,13 +2208,7 @@ ad_proc -public ad_returnredirect {
         util_ReturnMetaRefresh $url 
     } else {
         ns_returnredirect $url
-    }
-    
-    if { [string is false $html_p] } {
-	util_user_message -message $message
-    } else {
-	util_user_message -message $message -html
-    }
+    }    
 }
 
 ad_proc -public util_user_message { 
@@ -2713,6 +2291,46 @@ ad_proc -public util_absolute_path_p {{} path} {
    }
 }
 
+ad_proc -public util_driver_info {
+  {-array:required} 
+  {-driver ""}
+} {
+  Returns the protocol and port for the specified driver.
+
+  @param driver the driver to query (defaults to [ad_conn driver])
+  @param array the array to populate with proto and port
+} {
+    upvar $array result
+
+    if {[string equal $driver ""]} {
+        set driver [ad_conn driver]
+    }
+
+    switch $driver {
+        nssock {
+            set result(proto) http
+            set result(port) [ns_config -int "ns/server/[ns_info server]/module/nssock" Port]
+        }
+        nsunix {
+            set result(proto) http
+            set result(port) {}
+        }
+        nsssl - nsssle {
+            set result(port) [ns_config -int "ns/server/[ns_info server]/module/[ad_conn driver]" Port]
+            set result(proto) https
+        }
+        nsopenssl {
+            set result(port) [ns_config -int "ns/server/[ns_info server]/module/[ad_conn driver]" ServerPort]
+            set result(proto) https
+        }
+        default {
+            ns_log Error "Unknown driver: [ad_conn driver]. Only know nssock, nsunix, nsssl, nsssle, nsopenssl"
+            set result(port) [ns_config -int "ns/server/[ns_info server]/module/nssock" Port]
+            set result(proto) http
+        }
+    }
+}
+
 ad_proc -public util_current_location {{}} {
    Like ad_conn location - Returns the location string of the current
    request in the form protocol://hostname[:port] but it looks at the
@@ -2730,29 +2348,12 @@ ad_proc -public util_current_location {{}} {
     @author Lars Pind (lars@collaboraid.biz)
     @author Peter Marklund
 } {
-    switch [ad_conn driver] {
-        nssock {
-            set proto http
-            set port [ns_config -int "ns/server/[ns_info server]/module/nssock" Port]
-        }
-        nsunix {
-            set proto http
-            set port {}
-        }
-        nsssl - nsssle {
-            set port [ns_config -int "ns/server/[ns_info server]/module/[ad_conn driver]" Port]
-            set proto https
-        }
-        nsopenssl {
-            set port [ns_config -int "ns/server/[ns_info server]/module/[ad_conn driver]" ServerPort]
-            set proto https
-        }
-        default {
-            ns_log Error "Unknown driver: [ad_conn driver]. Only know nssock, nsunix, nsssl, nsssle, nsopenssl"
-            set port [ns_config -int "ns/server/[ns_info server]/module/nssock" Port]
-            set proto http
-        }
-    }
+    set default_port(http) 80
+    set default_port(https) 443
+    
+    util_driver_info -array driver
+    set proto $driver(proto)
+    set port $driver(port)
 
     # This is the host from the browser's HTTP request
     set Host [ns_set iget [ad_conn headers] Host]
@@ -2772,21 +2373,10 @@ ad_proc -public util_current_location {{}} {
         set hostname $Host_hostname
         if { ![empty_string_p $Host_port] } {
             set port $Host_port
-        }
+        }    
     }
 
-    # HTTP port - straight return
-    if { ![empty_string_p $port] && [string equal $port 80]} {
-        return "$proto://$hostname"
-    }
-
-    # HTTPS port - replace the proto
-    # HTTPS will only be possible on port 443 though...
-    if { ![empty_string_p $port] && [string equal $port 443]} {
-        return "https://$hostname"
-    }
-
-    if { ![empty_string_p $port]} {
+    if { ![empty_string_p $port] && ![string equal $port $default_port($proto)] } {
         return "$proto://$hostname:$port"
     } else {
         return "$proto://$hostname"
@@ -2830,12 +2420,17 @@ ad_proc -public ad_call_proc_if_exists { proc args } {
 
 ad_proc -public ad_get_tcl_call_stack { {level -2} } {
     Returns a stack trace from where the caller was called.
+    See also ad_print_stack_trace which generates a more readable 
+    stack trace at the expense of truncating args.
 
     @param level The level to start from, relative to this
     proc. Defaults to -2, meaning the proc that called this 
     proc's caller.
 
+
     @author Lars Pind (lars@pinds.com)
+
+    @see ad_print_stack_trace
  } {
     set stack ""
     for { set x [expr [info level] + $level] } { $x > 0 } { incr x -1 } {
@@ -3399,34 +2994,6 @@ ad_proc -public max { args } {
     return $max
 }
 
-ad_proc -deprecated -warn ad_check_for_naughty_html {user_submitted_html} {
-
-This proc is deprecated. Please use <a
-href="/api-doc/proc-view?proc=ad_html_security_check">ad_html_security_check</a>
-instead.
-
-<p>
-
-Returns a human-readable explanation if the user has used any of the
-HTML tags marked as naughty in the antispam section of ad.ini, otherwise
-returns an empty string.
-
-@see ad_html_security_check
-} {
-
-    set tag_names [list div font]
-    # look for a less than sign, zero or more spaces, then the tag
-    if { ! [empty_string_p $tag_names]} { 
-        if { [regexp "< *([join $tag_names "\[ \n\t\r\f\]|"]\[ \n\t\r\f\])" [string tolower $user_submitted_html]] } {
-            return "<p>For security reasons we do not accept the submission of any HTML 
-	    containing the following tags:</p> <code>[join $tag_names " "]</code>" 
-        }
-    }
-
-    # HTML was okay as far as we know
-    return ""
-}
-
 # usage: 
 #   suppose the variable is called "expiration_date"
 #   put "[ad_dateentrywidget expiration_date]" in your form
@@ -3446,11 +3013,6 @@ proc ad_dateentrywidget {column {default_date "1940-11-03"}} {
 
 
     return [ns_dbformvalueput $output $column date $default_date]
-}
-
-ad_proc -deprecated -warn ad_dateentrywidget_default_to_today {column} {
-    set today [lindex [split [ns_localsqltimestamp] " "] 0]
-    return [ad_dateentrywidget $column $today]
 }
 
 ad_proc -public util_ns_set_to_list {
@@ -3761,349 +3323,6 @@ ad_proc -public util_http_file_upload { -file -data -binary:boolean -filename
     
     return $page
 }
-
-    
-# base64.tcl --
-#
-# Encode/Decode base64 for a string
-# Stephen Uhler / Brent Welch (c) 1997 Sun Microsystems
-# The decoder was done for exmh by Chris Garrigues
-#
-# Copyright (c) 1998-2000 by Ajuba Solutions.
-# See the file "license.terms" for information on usage and redistribution
-# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
-# 
-# Version 1.0 implemented Base64_Encode, Bae64_Decode
-# Version 2.0 uses the base64 namespace
-# Version 2.1 fixes various decode bugs and adds options to encode
-# Version 2.2 is much faster, Tcl8.0 compatible
-
-package require Tcl 8
-namespace eval base64 {
-    namespace export encode decode
-}
-
-if {![catch {package require Trf 2.0}]} {
-    # Trf is available, so implement the functionality provided here
-    # in terms of calls to Trf for speed.
-
-    # base64::encode --
-    #
-    #	Base64 encode a given string.
-    #
-    # Arguments:
-    #	args	?-maxlen maxlen? ?-wrapchar wrapchar? string
-    #	
-    #		If maxlen is 0, the output is not wrapped.
-    #
-    # Results:
-    #	A Base64 encoded version of $string, wrapped at $maxlen characters
-    #	by $wrapchar.
-    
-    ad_proc -public ::base64::encode {args} {
-        Tcl implementation of base64::encode from tcllib 1.1.  
-        (Tcllib is distributed under the same terms as the Tcl core, i.e., 
-        the BSD license).  See http://tcllib.sourceforge.net for the latest.
-
-        <p>
-
-        This version uses the Trf extension for speed.
-    } {
-	# Set the default wrapchar and maximum line length to match the output
-	# of GNU uuencode 4.2.  Various RFC's allow for different wrapping 
-	# characters and wraplengths, so these may be overridden by command line
-	# options.
-	set wrapchar "\n"
-	set maxlen 60
-
-	if { [llength $args] == 0 } {
-	    error "wrong # args: should be \"[lindex [info level 0] 0]\
-		    ?-maxlen maxlen? ?-wrapchar wrapchar? string\""
-	}
-
-	set optionStrings [list "-maxlen" "-wrapchar"]
-	for {set i 0} {$i < [llength $args] - 1} {incr i} {
-	    set arg [lindex $args $i]
-	    set index [lsearch -glob $optionStrings "${arg}*"]
-	    if { $index == -1 } {
-		error "unknown option \"$arg\": must be -maxlen or -wrapchar"
-	    }
-	    incr i
-	    if { $i >= [llength $args] - 1 } {
-		error "value for \"$arg\" missing"
-	    }
-	    set val [lindex $args $i]
-
-	    # The name of the variable to assign the value to is extracted
-	    # from the list of known options, all of which have an
-	    # associated variable of the same name as the option without
-	    # a leading "-". The [string range] command is used to strip
-	    # of the leading "-" from the name of the option.
-	    #
-	    # FRINK: nocheck
-	    set [string range [lindex $optionStrings $index] 1 end] $val
-	}
-    
-	# [string is] requires Tcl8.2; this works with 8.0 too
-	if {[catch {expr {$maxlen % 2}}]} {
-	    error "expected integer but got \"$maxlen\""
-	}
-
-	set string [lindex $args end]
-	set result [::base64 -mode encode -- $string]
-	regsub -all -- \n $result {} result
-
-	if {$maxlen > 0} {
-	    set res ""
-	    set edge [expr {$maxlen - 1}]
-	    while {[string length $result] > $maxlen} {
-		append res [string range $result 0 $edge]$wrapchar
-		set result [string range $result $maxlen end]
-	    }
-	    if {[string length $result] > 0} {
-		append res $result
-	    }
-	    set result $res
-	}
-
-	return $result
-    }
-
-    # base64::decode --
-    #
-    #	Base64 decode a given string.
-    #
-    # Arguments:
-    #	string	The string to decode.  Characters not in the base64
-    #		alphabet are ignored (e.g., newlines)
-    #
-    # Results:
-    #	The decoded value.
-
-    ad_proc -public ::base64::decode {string} {
-        Tcl implementation of base64::encode from tcllib 1.1.  
-        (Tcllib is distributed under the same terms as the Tcl core, i.e., 
-        the BSD license).  See http://tcllib.sourceforge.net for the latest.
-
-        <p>
-
-        This version uses the Trf extension for speed.
-    } {
-	::base64 -mode decode -- $string
-    }
-
-} else {
-    # Without Trf use a pure tcl implementation
-
-    namespace eval base64 {
-	variable base64 {}
-	variable base64_en {}
-
-	# We create the auxiliary array base64_tmp, it will be unset later.
-
-	set i 0
-	foreach char {A B C D E F G H I J K L M N O P Q R S T U V W X Y Z \
-		a b c d e f g h i j k l m n o p q r s t u v w x y z \
-		0 1 2 3 4 5 6 7 8 9 + /} {
-	    set base64_tmp($char) $i
-	    lappend base64_en $char
-	    incr i
-	}
-
-	#
-	# Create base64 as list: to code for instance C<->3, specify
-	# that [lindex $base64 67] be 3 (C is 67 in ascii); non-coded
-	# ascii chars get a {}. we later use the fact that lindex on a
-	# non-existing index returns {}, and that [expr {} < 0] is true
-	#
-
-	# the last ascii char is 'z'
-	scan z %c len
-	for {set i 0} {$i <= $len} {incr i} {
-	    set char [format %c $i]
-	    set val {}
-	    if {[info exists base64_tmp($char)]} {
-		set val $base64_tmp($char)
-	    } else {
-		set val {}
-	    }
-	    lappend base64 $val
-	}
-
-	# code the character "=" as -1; used to signal end of message
-	scan = %c i
-	set base64 [lreplace $base64 $i $i -1]
-
-	# remove unneeded variables
-	unset base64_tmp i char len val
-
-	namespace export encode decode
-    }
-
-    # base64::encode --
-    #
-    #	Base64 encode a given string.
-    #
-    # Arguments:
-    #	args	?-maxlen maxlen? ?-wrapchar wrapchar? string
-    #	
-    #		If maxlen is 0, the output is not wrapped.
-    #
-    # Results:
-    #	A Base64 encoded version of $string, wrapped at $maxlen characters
-    #	by $wrapchar.
-    
-    ad_proc -public ::base64::encode {args} {
-        Tcl implementation of base64::encode from tcllib 1.1.  
-        (Tcllib is distributed under the same terms as the Tcl core, i.e., 
-        the BSD license).  See http://tcllib.sourceforge.net for the latest.
-    } {
-	set base64_en $::base64::base64_en
-	
-	# Set the default wrapchar and maximum line length to match the output
-	# of GNU uuencode 4.2.  Various RFC's allow for different wrapping 
-	# characters and wraplengths, so these may be overridden by command line
-	# options.
-	set wrapchar "\n"
-	set maxlen 60
-
-	if { [llength $args] == 0 } {
-	    error "wrong # args: should be \"[lindex [info level 0] 0]\
-		    ?-maxlen maxlen? ?-wrapchar wrapchar? string\""
-	}
-
-	set optionStrings [list "-maxlen" "-wrapchar"]
-	for {set i 0} {$i < [llength $args] - 1} {incr i} {
-	    set arg [lindex $args $i]
-	    set index [lsearch -glob $optionStrings "${arg}*"]
-	    if { $index == -1 } {
-		error "unknown option \"$arg\": must be -maxlen or -wrapchar"
-	    }
-	    incr i
-	    if { $i >= [llength $args] - 1 } {
-		error "value for \"$arg\" missing"
-	    }
-	    set val [lindex $args $i]
-
-	    # The name of the variable to assign the value to is extracted
-	    # from the list of known options, all of which have an
-	    # associated variable of the same name as the option without
-	    # a leading "-". The [string range] command is used to strip
-	    # of the leading "-" from the name of the option.
-	    #
-	    # FRINK: nocheck
-	    set [string range [lindex $optionStrings $index] 1 end] $val
-	}
-    
-	# [string is] requires Tcl8.2; this works with 8.0 too
-	if {[catch {expr {$maxlen % 2}}]} {
-	    error "expected integer but got \"$maxlen\""
-	}
-
-	set string [lindex $args end]
-
-	set result {}
-	set state 0
-	set length 0
-
-
-	# Process the input bytes 3-by-3
-
-	binary scan $string c* X
-	foreach {x y z} $X {
-	    # Do the line length check before appending so that we don't get an
-	    # extra newline if the output is a multiple of $maxlen chars long.
-	    if {$maxlen && $length >= $maxlen} {
-		append result $wrapchar
-		set length 0
-	    }
-	
-	    append result [lindex $base64_en [expr {($x >>2) & 0x3F}]] 
-	    if {$y != {}} {
-		append result [lindex $base64_en [expr {(($x << 4) & 0x30) | (($y >> 4) & 0xF)}]] 
-		if {$z != {}} {
-		    append result \
-			    [lindex $base64_en [expr {(($y << 2) & 0x3C) | (($z >> 6) & 0x3)}]]
-		    append result [lindex $base64_en [expr {($z & 0x3F)}]]
-		} else {
-		    set state 2
-		    break
-		}
-	    } else {
-		set state 1
-		break
-	    }
-	    incr length 4
-	}
-	if {$state == 1} {
-	    append result [lindex $base64_en [expr {(($x << 4) & 0x30)}]]== 
-	} elseif {$state == 2} {
-	    append result [lindex $base64_en [expr {(($y << 2) & 0x3C)}]]=  
-	}
-	return $result
-    }
-
-    # base64::decode --
-    #
-    #	Base64 decode a given string.
-    #
-    # Arguments:
-    #	string	The string to decode.  Characters not in the base64
-    #		alphabet are ignored (e.g., newlines)
-    #
-    # Results:
-    #	The decoded value.
-
-    ad_proc -public ::base64::decode {string} {
-        Tcl implementation of base64::encode from tcllib 1.1.  
-        (Tcllib is distributed under the same terms as the Tcl core, i.e., 
-        the BSD license).  See http://tcllib.sourceforge.net for the latest.
-    } {
-	set base64 $::base64::base64
-
-	binary scan $string c* X
-	foreach x $X {
-	    set bits [lindex $base64 $x]
-	    if {$bits >= 0} {
-		if {[llength [lappend nums $bits]] == 4} {
-		    foreach {v w z y} $nums break
-		    set a [expr {($v << 2) | ($w >> 4)}]
-		    set b [expr {(($w & 0xF) << 4) | ($z >> 2)}]
-		    set c [expr {(($z & 0x3) << 6) | $y}]
-		    append output [binary format ccc $a $b $c]
-		    set nums {}
-		}		
-	    } elseif {$bits == -1} {
-		# = indicates end of data.  Output whatever chars are left.
-		# The encoding algorithm dictates that we can only have 1 or 2
-		# padding characters.  If x=={}, we have 12 bits of input 
-		# (enough for 1 8-bit output).  If x!={}, we have 18 bits of
-		# input (enough for 2 8-bit outputs).
-		
-		foreach {v w z} $nums break
-		set a [expr {($v << 2) | (($w & 0x30) >> 4)}]
-		
-		if {$z == {}} {
-		    append output [binary format c $a ]
-		} else {
-		    set b [expr {(($w & 0xF) << 4) | (($z & 0x3C) >> 2)}]
-		    append output [binary format cc $a $b]
-		}		
-		break
-	    } else {
-		# RFC 2045 says that line breaks and other characters not part
-		# of the Base64 alphabet must be ignored, and that the decoder
-		# can optionally emit a warning or reject the message.  We opt
-		# not to do so, but to just ignore the character. 
-		continue
-	    }
-	}
-	return $output
-    }
-}
-
-# don't want to barf if, per chance, a newer version is already available
-catch { package provide base64 2.2 }
 
 ad_proc -public util_list_of_ns_sets_to_list_of_lists {
     {-list_of_ns_sets:required}
@@ -4903,19 +4122,28 @@ ad_proc -public util::age_pretty {
         set age_seconds 60
     }
 
-    if { $age_seconds < [expr $hours_limit * 60 * 60] } {
+   if { $age_seconds < [expr $hours_limit * 60 * 60] } {
         set hours [expr abs($age_seconds / 3600)]
         set minutes [expr round(($age_seconds% 3600)/60.0)]
-        switch $hours {
-            0 { set result "" }
-            1 { set result "One hour " }
-            default { set result "$hours hours "}
+        if {[expr $hours < 24]} {
+            switch $hours {
+                0 { set result "" }
+                1 { set result "One hour " }
+                default { set result "$hours hours "}
+            }
+            switch $minutes {
+                0 {}
+                1 { append result "$minutes minute " }
+                default { append result "$minutes minutes " }
+            }
+        } else {
+            set days [expr abs($hours / 24)]
+            switch $days {
+                1 { set result "One day " }
+                default { set result "$days days "}
+            }
         }
-        switch $minutes {
-            0 {}
-            1 { append result "$minutes minute " }
-            default { append result "$minutes minutes " }
-        }
+
         append result "ago"
     } elseif { $age_seconds < [expr $days_limit * 60 * 60 * 24] } {
         set result [lc_time_fmt $timestamp_ansi $mode_2_fmt $locale]
@@ -4923,6 +4151,123 @@ ad_proc -public util::age_pretty {
         set result [lc_time_fmt $timestamp_ansi $mode_3_fmt $locale]
 
     }
+}
+
+
+ad_proc -public util::word_diff {
+	{-old:required}
+	{-new:required}
+	{-split_by {}}
+	{-filter_proc {ad_quotehtml}}
+	{-start_old {<strike><i><font color="blue">}}
+	{-end_old {</font></i></strike>}}
+	{-start_new {<u><b><font color="red">}}
+	{-end_new {</font></b></u>}}
+} {
+	Does a word (or character) diff on two lines of text and indicates text
+	that has been deleted/changed or added by enclosing it in
+	start/end_old/new.
+	
+	@param	old	The original text.
+	@param	new	The modified text.
+	
+	@param	split_by	If split_by is a space, the diff will be made
+	on a word-by-word basis. If it is the empty string, it will be made on
+	a char-by-char basis.
+
+	@param	filter_proc	A filter to run the old/new text through before
+	doing the diff and inserting the HTML fragments below. Keep in mind
+	that if the input text is HTML, and the start_old, etc... fragments are
+	inserted at arbitrary locations depending on where the diffs are, you
+	might end up with invalid HTML unless the original HTML is quoted.
+
+	@param	start_old	HTML fragment to place before text that has been removed.
+	@param	end_old		HTML fragment to place after text that has been removed.
+	@param	start_new	HTML fragment to place before new text.
+	@param	end_new		HTML fragment to place after new text.
+
+	@see ad_quotehtml
+	@author Gabriel Burca
+} {
+
+	if {$filter_proc != ""} {
+		set old [$filter_proc $old]
+		set new [$filter_proc $new]
+	}
+
+	set old_f [ns_tmpnam]
+	set new_f [ns_tmpnam]
+	set old_fd [open $old_f "w"]
+	set new_fd [open $new_f "w"]
+	puts $old_fd [join [split $old $split_by] "\n"]
+	puts $new_fd [join [split $new $split_by] "\n"]
+	close $old_fd
+	close $new_fd
+
+	# Diff output is 1 based, our lists are 0 based, so insert a dummy
+	# element to start the list with.
+	set old_w [linsert [split $old $split_by] 0 {}]
+	set sv 1
+
+#	For debugging purposes:
+#	set diff_pipe [open "| diff -f $old_f $new_f" "r"]
+#	while {![eof $diff_pipe]} {
+#		append res "[gets $diff_pipe]<br>"
+#	}
+
+	set diff_pipe [open "| diff -f $old_f $new_f" "r"]
+	while {![eof $diff_pipe]} {
+		gets $diff_pipe diff
+		if {[regexp {^d(\d+)(\s+(\d+))?$} $diff full m1 m2]} {
+			if {$m2 != ""} {set d_end $m2} else {set d_end $m1}
+			for {set i $sv} {$i < $m1} {incr i} {
+				append res "${split_by}[lindex $old_w $i]"
+			}
+			for {set i $m1} {$i <= $d_end} {incr i} {
+				append res "${split_by}${start_old}[lindex $old_w $i]${end_old}"
+			}
+			set sv [expr $d_end + 1]
+		} elseif {[regexp {^c(\d+)(\s+(\d+))?$} $diff full m1 m2]} {
+			if {$m2 != ""} {set d_end $m2} else {set d_end $m1}
+			for {set i $sv} {$i < $m1} {incr i} {
+				append res "${split_by}[lindex $old_w $i]"
+			}
+			for {set i $m1} {$i <= $d_end} {incr i} {
+				append res "${split_by}${start_old}[lindex $old_w $i]${end_old}"
+			}
+			while {![eof $diff_pipe]} {
+				gets $diff_pipe diff
+				if {$diff == "."} {
+					break
+				} else {
+					append res "${split_by}${start_new}${diff}${end_new}"
+				}
+			}
+			set sv [expr $d_end + 1]
+		} elseif {[regexp {^a(\d+)$} $diff full m1]} {
+			set d_end $m1
+			for {set i $sv} {$i < $m1} {incr i} {
+				append res "${split_by}[lindex $old_w $i]"
+			}
+			while {![eof $diff_pipe]} {
+				gets $diff_pipe diff
+				if {$diff == "."} {
+					break
+				} else {
+					append res "${split_by}${start_new}${diff}${end_new}"
+				}
+			}
+			set sv [expr $d_end + 1]
+		}
+	}
+	
+	for {set i $sv} {$i < [llength $old_w]} {incr i} {
+		append res "${split_by}[lindex $old_w $i]"
+	}
+
+	file delete -- $old_f $new_f
+
+	return $res
 }
 
 ad_proc -public util::string_length_compare { s1 s2 } {
@@ -4949,3 +4294,81 @@ ad_proc -public util::roll_server_log {{}} {
     ns_log Notice "util::roll_server_log: Done rolling the server log." 
     return 0
 } 
+
+ad_proc -public util::cookietime {time} {
+    Return an RFC2109 compliant string for use in "Expires".
+} {
+    regsub {, (\d+) (\S+) (\d+)} [ns_httptime $time] {, \1-\2-\3} string
+    return $string
+}
+
+ad_proc -public util::find_all_files {
+    {-include_dirs 0}
+    {-max_depth 1}
+    {-check_file_func ""}
+    {-extension ""}
+    {-path:required}
+} {
+
+    Returns a list of lists with full paths and filename to all files under $path in the directory tree
+    (descending the tree to a depth of up to $max_depth).  Clients should not 
+    depend on the order of files returned.
+
+    DOES NOT WORK ON WINDOWS (you have to change the splitter and I don't know how to detect a windows system)
+
+    @param include_dirs Should directories be included in the list of files. 
+    @param max_depth How many levels of directories should be searched. Defaults to 1 which is the current directory
+    @param check_file_func Function which can be executed upon the file to determine if it is worth the effort
+    @param extension Only return files with this extension (single value !)
+    @param path The path in which to search for the files. Note that this is an absolute Path
+
+    @return list of lists (filename and full_path) of all files found.
+} {
+    # Use the examined_files array to track files that we've examined.
+    array set examined_files [list]
+
+    # A list of files that we will return (in the order in which we
+    # examined them).
+    set files [list]
+
+    # A list of files that we still need to examine.
+    set files_to_examine [list $path]
+
+    # Perform a breadth-first search of the file tree. For each level,
+    # examine files in $files_to_examine; if we encounter any directories,
+    # add contained files to $new_files_to_examine (which will become
+    # $files_to_examine in the next iteration).
+    while { [incr max_depth -1] > -2 && [llength $files_to_examine] != 0 } {
+	set new_files_to_examine [list]
+	foreach file $files_to_examine {
+	    # Only examine the file if we haven't already. (This is just a safeguard
+	    # in case, e.g., Tcl decides to play funny games with symbolic links so
+	    # we end up encountering the same file twice.)
+	    if { ![info exists examined_files($file)] } {
+		# Remember that we've examined the file.
+		set examined_files($file) 1
+
+		if { [empty_string_p $check_file_func] || [eval [list $check_file_func $file]] } {
+		    # If it's a file, add to our list. If it's a
+		    # directory, add its contents to our list of files to
+		    # examine next time.
+		    
+		    set filename [lindex [split $file "/"] end]
+		    set file_extension [lindex [split $filename "."] end]
+		    if { [file isfile $file] } {
+			if {$extension eq "" || $file_extension eq $extension} {
+			    lappend files [list $filename $file]
+			}
+		    } elseif { [file isdirectory $file] } {
+			if { $include_dirs == 1 } {
+			    lappend files $file
+			}
+			set new_files_to_examine [concat $new_files_to_examine [glob -nocomplain "$file/*"]]
+		    }
+		}
+	    }
+	}
+	set files_to_examine $new_files_to_examine
+    }
+    return $files
+}

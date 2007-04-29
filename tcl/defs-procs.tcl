@@ -8,7 +8,7 @@ ad_library {
     @cvs-id defs-procs.tcl,v 1.19.2.2 2003/03/28 13:43:28 lars Exp
 }
 
-ad_proc -public ad_acs_version {} {
+ad_proc -public ad_acs_version_no_cache {} {
     The OpenACS version of this instance. Uses the version name
     of the acs-kernel package.
 
@@ -17,6 +17,14 @@ ad_proc -public ad_acs_version {} {
     apm_version_get -package_key acs-kernel -array kernel
 
     return $kernel(version_name)
+}
+ad_proc -public ad_acs_version {} {
+    The OpenACS version of this instance. Uses the version name
+    of the acs-kernel package.
+
+    @author Peter Marklund
+} {
+    return [util_memoize ad_acs_version_no_cache]
 }
 
 ad_proc -public ad_acs_release_date {} {
@@ -42,14 +50,6 @@ ad_proc -public ad_outgoing_sender {} {
     @return The email address that will sign outgoing alerts
 } {
     return [ad_parameter -package_id [ad_acs_kernel_id] OutgoingSender]
-}
-
-
-ad_proc -deprecated ad_graphics_site_available_p {} {
-    As defined in the GraphicsSiteAvailableP kernel parameter.
-    @return 1 if there is a graphics site
-} {
-    return [ad_parameter -package_id [ad_acs_kernel_id]  GraphicsSiteAvailableP]
 }
 
 ad_proc -public ad_system_name {} {
@@ -85,10 +85,12 @@ ad_proc -public ad_pvt_home_name {} {
     This is the name that will be used for the user's workspace (usually "Your Workspace").
     @return the name especified for the user's workspace in the HomeName kernel parameter.
 } {
-    return [ad_parameter -package_id [ad_acs_kernel_id] HomeName]
+    return [lang::util::localize [ad_parameter -package_id [ad_acs_kernel_id] HomeName]]
 }
 
 ad_proc -public ad_pvt_home_link {} {
+    @return the html fragment for the /pvt link
+} {
     return "<a href=\"[ad_pvt_home]\">[ad_pvt_home_name]</a>"
 }
 
@@ -136,7 +138,6 @@ ad_proc -public acs_community_member_url {
     {-user_id:required}
 } {
     @return the url for the community member page of a particular user
-    @see acs_community_member_url
 } {
     return "[acs_community_member_page]?[export_vars user_id]"
 }
@@ -219,33 +220,32 @@ ad_proc -deprecated ad_admin_present_user {
 
 ad_proc -deprecated ad_header {
     {-focus ""}
-    {-extra_stuff_for_body ""}
     page_title
     {extra_stuff_for_document_head ""} 
 } {
     writes HEAD, TITLE, and BODY tags to start off pages in a consistent fashion
+
+
+    @see   Documentation on the site master template for the proper way to standardize page headers
 } {
     
     #    if {[ad_parameter MenuOnUserPagesP pdm] == 1} {
     #	return [ad_header_with_extra_stuff -focus $focus $page_title [ad_pdm] [ad_pdm_spacer]]
     #    } else {
     #    }
-    return [ad_header_with_extra_stuff \
-	-focus $focus \
-	-extra_stuff_for_body $extra_stuff_for_body \
-	$page_title \
-	$extra_stuff_for_document_head \
-    ]
+    return [ad_header_with_extra_stuff -focus $focus $page_title $extra_stuff_for_document_head]
+
 }
 
 ad_proc -deprecated ad_header_with_extra_stuff {
     {-focus ""}
-    {-extra_stuff_for_body ""}
     page_title
     {extra_stuff_for_document_head ""} 
     {pre_content_html ""}
 } {
     This is the version of the ad_header that accepts extra stuff for the document head and pre-page content html
+
+    @see  Documentation on the site master template for the proper way to standardize page headers
 } {
     set html "<html>
 <head>
@@ -256,14 +256,8 @@ $extra_stuff_for_document_head
 
     array set attrs [list]
 
-    if { [info exists prefer_text_only_p] && $prefer_text_only_p == "f" && [ad_graphics_site_available_p] } {
-        set attrs(bgcolor) [ad_parameter -package_id [ad_acs_kernel_id]  bgcolor "" "white"]
-	set attrs(background) [ad_parameter -package_id [ad_acs_kernel_id]  background "" "/graphics/bg.gif"]
-	set attrs(text) [ad_parameter -package_id [ad_acs_kernel_id]  textcolor "" "black"]
-    } else {
-	set attrs(bgcolor) [ad_parameter -package_id [ad_acs_kernel_id]  bgcolor "" "white"]
-	set attrs(text) [ad_parameter -package_id [ad_acs_kernel_id]  textcolor "" "black"]
-    }
+    set attrs(bgcolor) [ad_parameter -package_id [ad_acs_kernel_id]  bgcolor "" "white"]
+    set attrs(text) [ad_parameter -package_id [ad_acs_kernel_id]  textcolor "" "black"]
 
     if { ![empty_string_p $focus] } {
 	set attrs(onLoad) "javascript:document.${focus}.focus()"
@@ -272,7 +266,7 @@ $extra_stuff_for_document_head
     foreach attr [array names attrs] {
 	lappend attr_list "$attr=\"$attrs($attr)\""
     }
-    append html "<body [join $attr_list] $extra_stuff_for_body>\n"
+    append html "<body [join $attr_list]>\n"
 
     append html $pre_content_html
     return $html
@@ -285,6 +279,9 @@ ad_proc -deprecated ad_footer {
     Writes a horizontal rule, a mailto address box 
     (ad_system_owner if not specified as an argument), 
     and then closes the BODY and HTML tags
+
+
+    @see  Documentation on the site master template for the proper way to standardize page footers
 } {
     global sidegraphic_displayed_p
     if { [empty_string_p $signatory] } {
@@ -334,7 +331,10 @@ ad_proc -public ad_admin_owner {} {
 ad_proc -deprecated ad_admin_header {
     {-focus ""}
     page_title
-} "" {
+} {
+    
+    @see  Documentation on the site master template for the proper way to standardize page headers
+} {
     
     # if {[ad_parameter -package_id [ad_acs_kernel_id]  MenuOnAdminPagesP pdm] == 1} {
 	
@@ -348,6 +348,9 @@ ad_proc -deprecated ad_admin_header {
 ad_proc -deprecated ad_admin_footer {} {
     Signs pages with ad_admin_owner (usually a programmer who can fix 
     bugs) rather than the signatory of the user pages
+
+
+    @see  Documentation on the site master template for the proper way to standardize page footers
 } {
     if { [llength [info procs ds_link]] == 1 } {
 	set ds_link [ds_link]
@@ -496,30 +499,6 @@ ad_proc ad_return_if_another_copy_is_running {
     }
     # we're okay
     return 1
-}
-
-ad_proc ad_record_query_string {
-    query_string 
-    subsection 
-    n_results 
-    {user_id 0}
-} {
-    Records the query string and other params in the "query_string_record" table.
-    I'm not sure what's that's for.
-
-    @author Unknown
-    @author Roberto Mello
-} {  
-
-    if { $user_id == 0 } {
-	set user_id [db_null]
-    }
-
-    db_dml query_string_record {
-	insert into query_strings 
-	(query_date, query_string, subsection, n_results, user_id) values
-	(sysdate, :query_string, :subsection, :n_results, :user_id)
-    }
 }
 
 ad_proc ad_pretty_mailing_address_from_args {

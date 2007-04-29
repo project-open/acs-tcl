@@ -56,12 +56,23 @@
       </querytext>
 </fullquery>
 
+<fullquery name="person::update.update_object_title">      
+      <querytext>
+      
+	update acs_objects
+	set title = :first_names || ' ' || :last_name
+	where object_id = :person_id
+    
+      </querytext>
+</fullquery>
+
 <fullquery name="person::name_not_cached.get_person_name">      
       <querytext>
       
-          select first_names||' '||last_name as person_name
-            from persons
-           where person_id = :person_id
+          select distinct first_names||' '||last_name as person_name
+            from persons, parties
+           where person_id = party_id
+		and (party_id = :person_id or email = :email)
           
       </querytext>
 </fullquery>
@@ -136,12 +147,13 @@
       </querytext>
 </fullquery>
 
-<fullquery name="party::get_by_email.select_party_id">
+<fullquery name="party::update.object_title_update">      
       <querytext>
       
-        select party_id 
-        from   parties 
-        where  lower(email) = lower(:email)
+	    update acs_objects
+	    set title = :email
+	    where object_id = :party_id
+	    and object_type = 'party'
 
       </querytext>
 </fullquery>

@@ -19,6 +19,7 @@ ad_proc -public ad_text_to_html {
     -no_lines:boolean
     -no_quote:boolean
     -includes_html:boolean
+    -encode:boolean
     text 
 } {
     Converts plaintext to html. Also translates any recognized 
@@ -29,6 +30,7 @@ ad_proc -public ad_text_to_html {
     semi-HTML input and preserve that formatting. This will also cause spaces/tabs to not be
     replaced with nbsp's, because this can too easily mess up HTML tags.
     @param includes_html Set this if the text parameter already contains some HTML which should be preserved.
+    @param encode This will encode international characters into it's html equivalent, like "ü" into &uuml;
 
     @author Branimir Dolicki (branimir@arsdigita.com)
     @author Lars Pind (lars@pinds.com)
@@ -75,6 +77,32 @@ ad_proc -public ad_text_to_html {
     # we quote the ones entered by the user:
     if { !$no_quote_p } {
         set text [ad_quotehtml $text]
+    }
+
+    if { $encode_p} {
+	set  myChars  {
+	    ª º À Á Â Ã Ä Å Æ Ç
+	    È É Ê Ë Ì Í Î Ï Ð Ñ
+	    Ò Ó Ô Õ Ö Ø Ù Ú Û Ü
+	    Ý Þ ß à á â ã ä å æ
+	    ç è é ê ë ì í î ï ð
+	    ñ ò ó ô õ ö ø ù ú û
+	    ü ý þ ÿ ¿
+	}
+
+	set  myHTML  {
+	    &ordf; &ordm; &Agrave; &Aacute; &Acirc; &Atilde; &Auml; &Aring; &Aelig; &Ccedil; 
+	    &Egrave; &Eacute; &Ecirc; &Euml; &Igrave; &Iacute; &Icirc; &Iuml; &ETH; &Ntilde; 
+	    &Ograve; &Oacute; &Ocirc; &Otilde; &Ouml; &Oslash; &Ugrave; &Uacute; &Ucirc; &Uuml; 
+	    &Yacute; &THORN; &szlig; &agrave; &aacute; &acirc; &atilde; &auml; &aring; &aelig;
+	    &ccedil; &egrave; &eacute; &ecirc; &euml; &igrave; &iacute; &icirc; &iuml; &eth; 
+	    &ntilde; &ograve; &oacute; &ocirc; &otilde; &ouml; &oslash; &ugrave; &uacute; &ucirc; 
+	    &uuml; &yacute; &thorn; &yuml; &iquest;
+	}
+
+	for  { set i 0 }   { $i  < [ llength  $myChars ] }   { incr i }  {
+	    set  text [ string map "[ lindex $myChars $i ] [ lindex  $myHTML  $i ]" $text ]
+	}
     }
 
     # Convert line breaks
@@ -164,10 +192,18 @@ ad_proc -public ad_quotehtml { arg } {
     Analogous to ns_quotehtml except that it quotes double-quotes (which
     ns_quotehtml does not).
 
+    @see ad_unquotehtml
 } {
     return [string map {& &amp; \" &quot; < &lt; > &gt;} $arg]
 }
 
+ad_proc -public ad_unquotehtml {arg} {
+    reverses ad_quotehtml
+
+    @see ad_quotehtml
+} {
+    return [string map {&gt; > &lt; < &quot; \" &amp; &} $arg]
+}
 
 
 ####################
@@ -562,7 +598,7 @@ attribute_array(heres)='  something for   you to = "consider" '</pre>
     set count 0
     while { $i < [string length $html] && ![string equal [string index $html $i] {>}] } {
 	if { [incr count] > 1000 } {
-	    error "There appears to be a programming bug in ad_parse_html_attributes_upvar: We've entered an infinite loop."
+	    error "There appears to be a programming bug in ad_parse_html_attributes_upvar: We've entered an infinite loop. We are here: \noffset $i: [string range $html $i [expr $i + 60]]"
 	}
 	if { [string equal [string range $html $i [expr { $i + 1 }]] "/>"] } {
 	    # This is an XML-style tag ending: <... />
@@ -790,9 +826,12 @@ ad_proc -public ad_html_to_text {
 	
 	set count 0
 	while 1 {
-	    if { [incr count] > 1000 } {
-		error "There appears to be a programming bug in ad_html_to_text: We've entered an infinite loop."
-	    }
+            if {[incr count] > 1000 } {
+                # JCD: the programming bug is that an unmatched < in the input runs off forever looking for 
+                # it's closing > and in some long text like program listings you can have lots of quotes 
+                # before you find that >
+                error "There appears to be a programming bug in ad_html_to_text: We've entered an infinite loop."
+            }
 	    # Find the positions of the first quote, apostrophe and greater-than sign.
 	    set quote_idx [string first \" $html $i]
 	    set apostrophe_idx [string first ' $html $i]
@@ -973,6 +1012,34 @@ ad_proc -public ad_html_to_text {
 	append output(text) "\n\n[join $href_urls "\n"]"
     }
 
+    #---
+    # conversion like in ad_text_to_html
+    # 2006/09/12
+    set  myChars  {
+	ª º À Á Â Ã Ä Å Æ Ç
+	È É Ê Ë Ì Í Î Ï Ð Ñ
+	Ò Ó Ô Õ Ö Ø Ù Ú Û Ü
+	Ý Þ ß à á â ã ä å æ
+	ç è é ê ë ì í î ï ð
+	ñ ò ó ô õ ö ø ù ú û
+	ü ý þ ÿ ¿
+    }
+
+    set  myHTML  {
+	&ordf; &ordm; &Agrave; &Aacute; &Acirc; &Atilde; &Auml; &Aring; &Aelig; &Ccedil; 
+	&Egrave; &Eacute; &Ecirc; &Euml; &Igrave; &Iacute; &Icirc; &Iuml; &ETH; &Ntilde; 
+	&Ograve; &Oacute; &Ocirc; &Otilde; &Ouml; &Oslash; &Ugrave; &Uacute; &Ucirc; &Uuml; 
+	&Yacute; &THORN; &szlig; &agrave; &aacute; &acirc; &atilde; &auml; &aring; &aelig;
+	&ccedil; &egrave; &eacute; &ecirc; &euml; &igrave; &iacute; &icirc; &iuml; &eth; 
+	&ntilde; &ograve; &oacute; &ocirc; &otilde; &ouml; &oslash; &ugrave; &uacute; &ucirc; 
+	&uuml; &yacute; &thorn; &yuml; &iquest;
+    }
+
+    for  { set i 0 }   { $i  < [ llength  $myHTML ] }   { incr i }  {
+	set output(text) [ string map "[ lindex $myHTML $i ] [ lindex  $myChars  $i ]" $output(text) ]
+    }
+    #---
+
     return $output(text)
 }
 
@@ -1142,7 +1209,6 @@ ad_proc util_expand_entities_ie_style { html } {
     Unlike it's sister proc, <a href="/api-doc/proc-view?proc=util_expand_entities"><code>util_expand_entities</code></a>,
     it also expands numeric entities (#999 or #xff style).
 
-    
     @author Lars Pind (lars@pinds.com)
     @creation-date October 17, 2000
 } {
@@ -1158,7 +1224,7 @@ ad_proc util_expand_entities_ie_style { html } {
 	    # {
 		switch -regexp -- [string index $html [expr $i+2]] {
 		    [xX] {
-			regexp -indices -start [expr $i+3] {[0-9a-eA-E]*} $html hex_idx
+			regexp -indices -start [expr $i+3] {[0-9a-fA-F]*} $html hex_idx
 			set hex [string range $html [lindex $hex_idx 0] [lindex $hex_idx 1]]
 			set html [string replace $html $i [lindex $hex_idx 1] \
 				[subst -nocommands -novariables "\\x$hex"]]
@@ -1273,6 +1339,15 @@ ad_proc -public ad_html_text_convert {
 
     <p>
 
+    Example: ad_html_text_convert -from "text/html" -to "text/plain" -- "text"
+
+    <p>
+
+    Putting in the -- prevents Tcl from treating a - in text portion
+    from being treated as a parameter.
+
+    <p>
+
     Html to html closes any unclosed html tags 
     (see util_close_html_tags).
     
@@ -1323,7 +1398,7 @@ ad_proc -public ad_html_text_convert {
         return ""
     }
 
-    set valid_froms { text/enhanced text/plain text/fixed-width text/html }
+    set valid_froms { text/enhanced text/plain text/fixed-width text/html text/xml }
     set valid_tos { text/plain text/html }
     
     # Validate procedure input
@@ -1378,7 +1453,17 @@ ad_proc -public ad_html_text_convert {
 		    set text [ad_html_to_text -maxlen $maxlen -- $text]
 		}
 	    }
-	} 
+	}
+	text/xml {
+	    switch $to {
+                text/html {
+                    set text "<pre>[ad_text_to_html -no_lines -- $text]</pre>"
+		}
+                text/plain {
+		            set text [wrap_string $text $maxlen]
+		}
+	    }
+	}	 
     }
 
     # Handle closing of HTML tags, truncation
@@ -1537,6 +1622,11 @@ ad_proc -public string_truncate {
                 }
             }
             
+            # If that laves us with an empty string, then ignore whitespace and just truncate mid-word
+            if { $end_index == -1 } {
+                set end_index [expr $len-[string length $ellipsis]-1]
+            }
+            
             # Chop off extra whitespace at the end
             while { $end_index >= 0 && [string is space [string index $string $end_index]] } {
                 incr end_index -1
@@ -1610,7 +1700,7 @@ ad_proc -deprecated util_maybe_convert_to_html {raw_string html_p} {
     }
 }
 
-ad_proc -deprecated util_quotehtml { arg } {
+ad_proc -deprecated -warn util_quotehtml { arg } {
     This proc does exactly the same as <a href="/api-doc/proc-view?proc=ad_quotehtml"><code>ad_quotehtml</code></a>. 
     Use that instead. This one will be deleted eventually.
 

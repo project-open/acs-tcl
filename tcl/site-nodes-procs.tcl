@@ -76,10 +76,12 @@ ad_proc -public site_node::delete {
 ad_proc -public site_node::mount {
     {-node_id:required}
     {-object_id:required}
+    {-context_id}
 } {
     mount object at site node
 } {
     db_dml mount_object {}
+    db_dml update_object_package_id {}
 
     ns_mutex lock [nsv_get site_nodes_mutex mutex]
 
@@ -130,6 +132,16 @@ ad_proc -public site_node::mount {
         ns_mutex unlock [nsv_get site_nodes_mutex mutex]
     }
 
+    # DAVEB update context_id if it is passed in
+    # some code relies on context_id to be set by
+    # instantiate_and_mount so we can't assume
+    # anything at this point. Callers that need to set context_id
+    # for example, when an unmounted package is mounted,
+    # should pass in the correct context_id
+    if {[info exists context_id]} {
+        db_dml update_package_context_id ""
+    }
+
     apm_invoke_callback_proc -package_key [apm_package_key_from_id $object_id] -type "after-mount" -arg_list [list node_id $node_id package_id $object_id]
 
 }
@@ -145,6 +157,7 @@ ad_proc -public site_node::rename {
     set child_node_ids [get_children -all -node_id $node_id -element node_id]
 
     db_dml rename_node {}
+    db_dml update_object_title {}
 
     update_cache -sync_children -node_id $node_id
 }
@@ -232,6 +245,7 @@ ad_proc -public site_node::unmount {
     apm_invoke_callback_proc -package_key [apm_package_key_from_id $package_id] -type before-unmount -arg_list [list package_id $package_id node_id $node_id]
 
     db_dml unmount_object {}
+    db_dml update_object_package_id {}
     update_cache -node_id $node_id
 }
 
@@ -589,6 +603,30 @@ ad_proc -public site_node::get_parent {
     return [get -node_id $node(parent_id)]
 }
 
+ad_proc -public site_node::get_ancestors {
+    {-node_id:required}
+    {-element ""}
+} {
+    return the ancestors of this node
+} {
+    set result [list]
+    set array_result_p [string equal $element ""]
+
+    while {![string equal $node_id ""]} {
+        array set node [get -node_id $node_id]
+       
+        if {$array_result_p} {
+            lappend result [array get node]
+        } else {
+            lappend result $node($element)
+        }
+
+        set node_id $node(parent_id)
+    }
+    
+    return $result
+}
+
 ad_proc -public site_node::get_object_id {
     {-node_id:required}
 } {
@@ -639,55 +677,67 @@ ad_proc -public site_node::get_children {
     if { ![empty_string_p $package_type] && ![empty_string_p $package_key] } {
         error "You may specify either package_type, package_key, or filter_element, but not more than one."
     }
+
     if { ![empty_string_p $package_type] } {
         lappend filters package_type $package_type
     } elseif { ![empty_string_p $package_key] } {
         lappend filters package_key $package_key
     }
-    
-    set node_url [get_url -node_id $node_id]
-    
-    set child_urls [nsv_array names site_nodes "${node_url}?*"]
 
-    if { !$all_p } {
-        set org_child_urls $child_urls
+    set node_url [site_node::get_url -node_id $node_id]
+
+    if { !$all_p } { 
         set child_urls [list]
-        foreach child_url $org_child_urls {
-            if { [regexp "^${node_url}\[^/\]*/\$" $child_url] } {
+        set s [string length "$node_url"]
+        # find all child_urls who have only one path element below node_id
+        # by clipping the node url and last character and seeing if there 
+        # is a / in the string.  about 2x faster than the RE version.
+        foreach child_url [nsv_array names site_nodes "${node_url}?*"] {
+            if { [string first / [string range $child_url $s end-1]] < 0 } {
                 lappend child_urls $child_url
             }
         }
+    } else {
+        set child_urls [nsv_array names site_nodes "${node_url}?*"]
     }
+
 
     if { [llength $filters] > 0 } {
-        set org_child_urls $child_urls
-        set child_urls [list]
-        foreach child_url $org_child_urls {
-            array unset site_node
-            array set site_node [get_from_url -exact -url $child_url]
-
-            set passed_p 1
-            foreach { elm val } $filters {
-                if { ![string equal $site_node($elm) $val] } {
-                    set passed_p 0
-                    break
-                }
-            }
-            if { $passed_p } {
-                lappend child_urls $child_url
-            }
-        }
-    }
-
-    if { ![empty_string_p $element] } {
-        # We need to update the cache for all the child nodes as well
         set return_val [list]
         foreach child_url $child_urls {
             array unset site_node
-            array set site_node [site_node::get_from_url -url $child_url]
+            if {![catch {array set site_node [nsv_get site_nodes $child_url]}]} {
 
-            lappend return_val $site_node($element)
+                set passed_p 1
+                foreach { elm val } $filters {
+                    if { ![string equal $site_node($elm) $val] } {
+                        set passed_p 0
+                        break
+                    }
+                }
+                if { $passed_p } {
+                    if { ![empty_string_p $element] } {
+                        lappend return_val $site_node($element)
+                    } else {
+                        lappend return_val $child_url
+                    }
+                }
+            }
         }
+    } elseif { ![empty_string_p $element] } {
+        set return_val [list]
+        foreach child_url $child_urls {
+            array unset site_node
+            if {![catch {array set site_node [nsv_get site_nodes $child_url]}]} {
+                lappend return_val $site_node($element)
+            }
+        }
+    }
+
+    # if we had filters or were getting a particular element then we 
+    # have our results in return_val otherwise it's just urls
+    if { ![empty_string_p $element]
+         || [llength $filters] > 0} {
         return $return_val
     } else {
         return $child_urls
@@ -767,7 +817,12 @@ ad_proc -public site_node::get_package_url {
 } {
     Get the URL of any mounted instance of a package with the given package_key.
 
+    If there is more than one mounted instance of a package, returns
+    the first URL. To see all of the mounted URLs, use the 
+    site_node::get_children proc.
+
     @return a URL, or empty string if no instance of the package is mounted.
+    @see site_node::get_children
 } {
     if { [nsv_exists site_node_url_by_package_key $package_key] } {
         return [lindex [nsv_get site_node_url_by_package_key $package_key] 0]
@@ -844,48 +899,6 @@ ad_proc -public site_node::verify_folder_name {
 #
 #############
 
-ad_proc -deprecated -warn site_node_create {
-    {-new_node_id ""}
-    {-directory_p "t"}
-    {-pattern_p "t"}
-    parent_node_id
-    name
-} {
-    Create a new site node.  Returns the node_id
-
-    @see site_node::new
-} {
-    return [site_node::new \
-        -name $name \
-        -parent_id $parent_node_id \
-        -directory_p $directory_p \
-        -pattern_p $pattern_p \
-    ]
-}
-
-ad_proc -deprecated -warn site_node_create_package_instance {
-    { -package_id 0 }
-    { -sync_p "t" }
-    node_id
-    instance_name
-    context_id
-    package_key
-} {
-    Creates a new instance of the specified package and flushes the
-    in-memory site map (if sync_p is t). This proc is deprecated, please use
-    site_node::instantiate_and_mount instead.
-
-    @author Michael Bryzek (mbryzek@arsdigita.com)
-    @see site_node::instantiate_and_mount
-    @creation-date 2001-02-05
-
-    @return The package_id of the newly mounted package
-} {
-    return [site_node::instantiate_and_mount -node_id $node_id \
-                                             -package_name $instance_name \
-                                             -context_id $context_id \
-                                             -package_key $package_key]
-}
 
 ad_proc -public site_node_delete_package_instance {
     {-node_id:required}
@@ -900,42 +913,6 @@ ad_proc -public site_node_delete_package_instance {
         site_node::unmount -node_id $node_id
         apm_package_instance_delete $package_id
     }
-}
-
-ad_proc -public -deprecated -warn site_node_mount_application {
-    {-sync_p "t"}
-    {-return "package_id"}
-    parent_node_id
-    url_path_component
-    package_key
-    instance_name
-} {
-    Creates a new instance of the specified package and mounts it
-    beneath parent_node_id. Deprecated - please use the proc
-    site_node::instantiate_and_mount instead.
-
-    @author Michael Bryzek (mbryzek@arsdigita.com)
-    @creation-date 2001-02-05
-
-    @param sync_p Obsolete. If "t", we flush the in-memory site map
-    @param return (now ignored, always return package_id)
-    @param parent_node_id The node under which we are mounting this
-           application
-    @param url_path_component the url for the mounted instance (appended to the parent_node 
-           url)
-    @param package_key The type of package we are mounting
-    @param instance_name The name we want to give the package we are
-           mounting (used for the context bar string etc).
-
-    @see site_node::instantiate_and_mount
-
-    @return The package id of the newly mounted package
-} {
-    return [site_node::instantiate_and_mount \
-                -parent_node_id $parent_node_id \
-                -node_name $url_path_component \
-                -package_name $instance_name \
-                -package_key $package_key]
 }
 
 ad_proc -public site_map_unmount_application {
@@ -961,16 +938,6 @@ ad_proc -public site_map_unmount_application {
             site_node::delete -node_id $node_id
         }
     }
-}
-
-ad_proc -deprecated -warn site_node {url} {
-    Returns an array in the form of a list. This array contains
-    url, node_id, directory_p, pattern_p, and object_id for the
-    given url. If no node is found then this will throw an error.
-    
-    @see site_node::get 
-} {
-    return [site_node::get -url $url]
 }
 
 ad_proc -public site_node_id {url} {
@@ -1068,9 +1035,9 @@ ad_proc -deprecated -warn site_node_closest_ancestor_package {
     return $default
 }
 
-ad_proc -public site_node_closest_ancestor_package_url {
+ad_proc -deprecated -public site_node_closest_ancestor_package_url {
     { -default "" }
-    { -package_key "acs-subsite" }
+    { -package_key {} }
 } {
     Returns the url stub of the nearest application of the specified
     type.
@@ -1078,12 +1045,21 @@ ad_proc -public site_node_closest_ancestor_package_url {
     @author Michael Bryzek (mbryzek@arsdigita.com)
     @creation-date 2001-02-05
 
-    @param package_key The type of package for which we're looking
+    @param package_key The types of packages for which we're looking (defaults to subsite packages)
     @param default The default value to return if no package of the
     specified type was found
 
+    @see site::node::closest_ancestor_package
 } {
-    set subsite_pkg_id [site_node_closest_ancestor_package $package_key]
+    if {[empty_string_p $package_key]} {
+        set package_key [subsite::package_keys]
+    }
+
+    set subsite_pkg_id [site_node::closest_ancestor_package \
+                            -include_self \
+                            -package_key $package_key \
+                            -url [ad_conn url] ]
+
     if {[empty_string_p $subsite_pkg_id]} {
         # No package was found... return the default
         return $default

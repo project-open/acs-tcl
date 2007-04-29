@@ -25,18 +25,8 @@ ad_proc build_mime_message {
     to be unable to handle utf-8 encoding). A future version of this proc
     should probably support an alternative charset argument or switch.
 } {
-    ## JCD: we moved these into -procs.tcl files so they get 
-    ## sourced when we bootstrap.
-    # this is always called from a scheduled proc
-    #    set r_dir [acs_root_dir]/packages/acs-tcl/tcl
-    #source $r_dir/base64.tcl
-    #source $r_dir/md5.tcl
-    #source $r_dir/mime.tcl
-
-    # Files are included, therefore there is no need for the mime
-    # package anymore.
-
-    # package require mime
+    # switched to using tcllib, its required for openacs >= 5.3
+    package require mime
 
     # convert text to charset
     set encoding [ns_encodingforcharset $charset]
@@ -70,7 +60,10 @@ ad_proc build_mime_message {
     # message out through an SMTP socket, but we're not doing that so we
     # have to hijack the process a bit.
     set mime_body [mime::buildmessage $multi_part]
-
+    # mime-encode the periods at the beginning of a line in the
+    # message text or they are lost. Most noticable when the line
+    # is broken within a URL
+    regsub {^\.} $mime_body {=2E} mime_body
     # the first three lines of the message are special; we need to grab
     # the info, add it to the message headers, and discard the lines
     set lines [split $mime_body \n]
@@ -120,13 +113,29 @@ ad_proc parse_incoming_email {
         set parts [list $mime]
     }
 
+    # Expand any first-level multipart/alternative children.
+    set expanded_parts [list]
     foreach part $parts {
+        if { [string equal [mime::getproperty $part content] "multipart/alternative" ] } {
+            foreach child_part [mime::getproperty $part parts] {
+                lappend expanded_parts $child_part
+            }
+        } else {
+            lappend expanded_parts $part
+        }
+    }
+
+    foreach part $expanded_parts {
         switch [mime::getproperty $part content] {
             "text/plain" {
-                set plain [mime::getbody $part]
+                if { ![info exists plain] } {
+                    set plain [mime::getbody $part]
+                }
             }
             "text/html" {
-                set html [mime::getbody $part]
+                if { ![info exists html] } {
+                    set html [mime::getbody $part]
+                }
             }
         }
     }

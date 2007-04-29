@@ -506,7 +506,6 @@ ad_proc -public ad_form {
     @see ad_set_form_values
 
 } {
-
     set level [template::adp_level]
 
     # Are we extending the form?
@@ -527,8 +526,8 @@ ad_proc -public ad_form {
     set valid_args { form method action mode html name select_query select_query_name new_data
                      on_refresh edit_data validate on_submit after_submit confirm_template
                      on_request new_request edit_request export cancel_url cancel_label
-                     has_submit has_edit actions edit_buttons display_buttons show_required_p
-                     on_validation_error };
+                     has_submit has_edit actions edit_buttons display_buttons show_required_p 
+                     on_validation_error fieldset };
 
     ad_arg_parser $valid_args $args
 
@@ -547,11 +546,15 @@ ad_proc -public ad_form {
         return -code error "Can't extend form \"$form_name\" - a parameter block requiring the full form has already been declared"
     }
 
-    global af_parts
+    # Allow an empty form to work until we see an action block, useful for building up
+    # forms piecemeal.
 
-    if { $extend_p && ![info exists af_parts(${form_name}__form)] } {
-        return -code error "You can't extend form \"$form_name\" until you've created the form"
+    global af_element_names
+    if { !$extend_p } {
+        set af_element_names($form_name) [list]
     }
+
+    global af_parts
 
     foreach valid_arg $valid_args {
         if { [info exists $valid_arg] } {
@@ -566,19 +569,10 @@ ad_proc -public ad_form {
             # and validation block to be extended, for now at least until I get more experience
             # with this ...
 
-            if { [lsearch { name form method action html validate export mode cancel_url has_edit has_submit actions edit_buttons display_buttons on_validation_error} $valid_arg ] == -1 } {
+            if { [lsearch { name form method action html validate export mode cancel_url has_edit has_submit actions edit_buttons display_buttons fieldset on_validation_error} $valid_arg ] == -1 } {
                 set af_parts(${form_name}__extend) ""
             }
         }
-    }
-
-    if { ![info exists af_parts(${form_name}__form)] } {
-        return -code error "No \"form\" block has been specified for form \"$form_name\""
-    }
-
-    # If we're not extending - this needs integration with the ATS form builder ...
-    if { !$extend_p } {
-        # incr ad_conn(form_count)
     }
 
     ####################
@@ -592,7 +586,6 @@ ad_proc -public ad_form {
     # and we should extend its data and use it directly, but there's not time to do this
     # right for Greenpeace so I'm hacking the hell out of it)
 
-    global af_element_names
     global af_flag_list
     global af_to_sql
     global af_from_sql
@@ -605,18 +598,19 @@ ad_proc -public ad_form {
     array set af_element_parameters [list] 
 
     if { [info exists form] } {
-
+	
         # Remove comment lines in form section (DanW)
         regsub -all -line -- {^\s*\#.*$} $form "" form
-
+	
         foreach element $form {
             set element_name_part [lindex $element 0]
 
             # This can easily be generalized if we add more embeddable form commands ...
 
             if { [string equal $element_name_part "-section"] } {
-                lappend af_element_names($form_name) "[list "-section" [uplevel [list subst [lindex $element 1]]]]"
+                lappend af_element_names($form_name) "[concat "-section" [uplevel [list subst [lrange $element 1 end]]]]"
             } else {
+                set element_name_part [uplevel [list subst $element_name_part]]
                 if { ![regexp {^([^ \t:]+)(?::([a-zA-Z0-9_,(|)]*))?$} $element_name_part match element_name flags] } {
                     return -code error "Form element '$element_name_part' doesn't have the right format. It must be var\[:flag\[,flag ...\]\]"
                 }
@@ -651,7 +645,9 @@ ad_proc -public ad_form {
     # checks.  We implement this by building a global list of validation elements
 
     global af_validate_elements
-    set af_validate_elements($form_name) [list]
+    if { !$extend_p } {
+        set af_validate_elements($form_name) [list]
+    }
 
     if { [info exists validate] } {
 
@@ -663,7 +659,8 @@ ad_proc -public ad_form {
                 return -code error "Validate block must have three arguments: element name, expression, error message"
             }
 
-            if { [lsearch $af_element_names($form_name) [lindex $validate_element 0]] == -1 } {
+            if {[lsearch $af_element_names($form_name) [lindex $validate_element 0]] == -1
+                && ![template::element::exists $form_name [lindex $validate_element 0]]} { 
                 return -code error "Element \"[lindex $validate_element 0]\" is not a form element"
             }
             lappend af_validate_elements($form_name) $validate_element
@@ -717,6 +714,10 @@ ad_proc -public ad_form {
             lappend create_command "-display_buttons" $display_buttons
         }
 
+        if { [info exists fieldset] } {
+            lappend create_command "-fieldset" $fieldset
+        }
+
         if { [info exists show_required_p] } {
             lappend create_command "-show_required_p" $show_required_p
         }
@@ -762,10 +763,24 @@ ad_proc -public ad_form {
     global af_sequence_name
 
     foreach element_name $element_names {
-        if { [llength $element_name] == 2 } {
-            switch [string range [lindex $element_name 0] 1 end] {
-                section { template::form section $form_name [lindex $element_name 1] }
+        if { [lindex $element_name 0] eq "-section" } {
+            set command [list template::form section]
+            foreach {option} [lrange $element_name 2 end] {
+                set switch [lindex $option 0]
+                set args [lindex $option 1]
+                switch $switch {
+                    fieldset -
+                    legendtext -
+                    legend {
+                        lappend command -$switch
+                        lappend command $args
+                    }
+                    default {return -code error "\"$switch\" is not a legal -section option"}
+                }
             }
+            lappend command $form_name
+            lappend command [lindex $element_name 1]
+            eval $command
         } else {
             set form_command [list template::element create $form_name $element_name]
             foreach flag $af_flag_list(${form_name}__$element_name) {
@@ -808,11 +823,11 @@ ad_proc -public ad_form {
                             return -code error "element $element_name: \"$flag\" attribute must have a parameter"
                         }
                         set name af_$flag
+                        global af_$flag
                         append name "(${form_name}__$element_name)"
                         if { [info exists $name] } {
                             return -code error "element $element_name: \"$flag\" appears twice"
                         }
-                        global $name
                         set $name $af_element_parameters($element_name:$flag)
                     }
 
@@ -848,7 +863,6 @@ ad_proc -public ad_form {
 
     # Check that any acquire and get_property attributes are supported by their element's datatype
     # These are needed at submission and fill-the-form-with-db-values time 
-
     foreach element_name $af_element_names($form_name) {
         if { [llength $element_name] == 1 } {
             if { [info exists af_from_sql(${form_name}__$element_name)] } {
@@ -884,6 +898,10 @@ ad_proc -public ad_form {
 
     if { ![info exists af_parts(${form_name}__extend)] } {
         return
+    }
+
+    if { ![info exists af_parts(${form_name}__form)] } {
+        return -code error "No \"form\" block has been specified for form \"$form_name\""
     }
 
     if { [template::form is_request $form_name] } {
@@ -972,7 +990,7 @@ ad_proc -public ad_form {
                     return -code error "Couldn't get the next value from sequence: $errmsg\""
                 }
                 set values(__new_p) 1
-
+		
                 if { [info exists new_request] } {
                     ad_page_contract_eval uplevel #$level $new_request
                     # LARS: Set form values based on local vars in the new_request block
@@ -1069,7 +1087,6 @@ ad_proc -public ad_form {
                             lappend args [list $element_name [uplevel #$level [list set $element_name]]]
                         }
                     }
-
                     # This is serious abuse of ad_return_exception_template, but hell, I wrote it so I'm entitled ...
                     ad_return_exception_template -status 200 -params $args $confirm_template
 

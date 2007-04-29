@@ -7,6 +7,10 @@ ad_library {
     @cvs-id $Id$
 }
 
+namespace eval apm {}
+namespace eval apm::package_version {}
+namespace eval apm::package_version::attributes {}
+namespace eval ::install::xml::action {}
 
 ad_proc apm_scan_packages { 
     {-callback apm_dummy_callback}
@@ -24,7 +28,7 @@ ad_proc apm_scan_packages {
     }
 
     ### Scan for all unregistered .info files.
-    
+
     ns_log Notice "apm_scan_packages: Scanning for new unregistered packages..."
     set new_spec_files [list]
     # Loop through all directories in the /packages directory, searching each for a
@@ -121,7 +125,7 @@ ad_proc -public apm_dependency_provided_p {
 }
 
 ad_proc -private pkg_info_new { package_key spec_file_path provides requires {dependency_p ""} {comment ""}} {
-    
+
     Returns a datastructure that maintains information about a package.
     @param package_key The key of the package.
     @param spec_file_path The path to the package specification file
@@ -152,7 +156,7 @@ ad_proc -private pkg_info_spec {pkg_info} {
 }
 
 ad_proc -private pkg_info_path {pkg_info} {
-    
+
 
     @return The full path of the packages dir stored in the package info map.
             Assumes that the info file is stored in the root
@@ -382,11 +386,11 @@ ad_proc -private apm_dependency_check_new {
                             available packages as returned by apm_get_package_repository.
 
     @return             An array list with the following elements:
-    
+
     <ul>
-    
+
       <li>status: 'ok' or 'failed'.
-    
+
       <li>install: If status is 'ok', this is the complete list of packages that need to be installed, 
                    in the order in which they need to be installed.
                    If status is 'failed', the list of packages that can be installed.
@@ -398,7 +402,7 @@ ad_proc -private apm_dependency_check_new {
                     were originally requested, or because they were required. If status is 'ok', 
                     will be identical to 'install'.
                   
-    
+
     </ul>
 
     @see apm_get_package_repository
@@ -411,7 +415,7 @@ ad_proc -private apm_dependency_check_new {
         failed {}
         packages {}
     }
-    
+
     # 'pending_packages' is an array keyed by package_key with a value of 1 for each package pending installation
     # When dependencies have been met, the entry will be unset
     array set pending_packages [list]
@@ -628,6 +632,7 @@ ad_proc -private apm_load_catalog_files {
     lang::catalog::import -cache -package_key $package_key
 }
 
+namespace eval apm {}
 
 ad_proc -private apm_package_install { 
     {-enable:boolean}
@@ -713,12 +718,30 @@ ad_proc -private apm_package_install {
             apm_load_queries -packages $package_key
         }
 
-        if { $upgrade_p } {
+        # Get the callbacks in an array, since we can't rely on the 
+        # before-upgrade being in the db (since it might have changed)
+        # and the before-install definitely won't be there since 
+        # it's not added til later here.
+
+        array set callbacks $version(callbacks)
+
+        if {$upgrade_p} {
             # Run before-upgrade
-            apm_invoke_callback_proc -version_id $version_id -type before-upgrade -arg_list [list from_version_name $upgrade_from_version_name to_version_name $version(name)]
+            if {[info exists callbacks(before-upgrade)]} {
+                apm_invoke_callback_proc \
+                    -proc_name $callbacks(before-upgrade) \
+                    -version_id $version_id \
+                    -type before-upgrade \
+                    -arg_list [list from_version_name $upgrade_from_version_name to_version_name $version(name)]
+            }
         } else {
             # Run before-install
-            apm_invoke_callback_proc -version_id $version_id -type before-install
+            if {[info exists callbacks(before-install)]} {
+                apm_invoke_callback_proc \
+                    -proc_name $callbacks(before-install) \
+                    -version_id $version_id \
+                    -type before-install
+            }
         }
 
         if { $load_data_model_p } {
@@ -733,7 +756,10 @@ ad_proc -private apm_package_install {
             # Load catalog files with upgrade switch before package version is changed in db
             apm_load_catalog_files -upgrade $package_key
 
-	    set version_id [apm_package_install_version -callback $callback $package_key $version_name \
+	    set version_id [apm_package_install_version \
+                                -callback $callback \
+                                -array version \
+                                $package_key $version_name \
 		    $version_uri $summary $description $description_format $vendor $vendor_uri $auto_mount $release_date]
 	    apm_version_upgrade $version_id
 	    apm_package_upgrade_parameters -callback $callback $version(parameters) $package_key
@@ -745,6 +771,7 @@ ad_proc -private apm_package_install {
 
 	    set version_id [apm_package_install_version \
                                 -callback $callback \
+                                -array version \
                                 $package_key $version_name \
 				$version_uri $summary $description $description_format $vendor $vendor_uri $auto_mount $release_date]
 
@@ -785,7 +812,7 @@ ad_proc -private apm_package_install {
 
 	apm_version_enable -callback $callback $version_id
     }
-    
+
     # Instantiating, mounting, and after-install callback only invoked on initial install
     if { ! $upgrade_p } {
         # After install Tcl proc callback
@@ -850,13 +877,18 @@ ad_proc -private apm_package_install {
 
 ad_proc -private apm_package_install_version {
     {-callback apm_dummy_callback}
+    {-array:required}
     {-version_id ""}
-    package_key version_name version_uri summary description description_format vendor vendor_uri auto_mount {release_date ""} 
+    package_key version_name version_uri summary description description_format vendor vendor_uri auto_mount {release_date ""}
 } {
     Installs a version of a package.
 
+    @param array The name of the array in the callers scope holding package version attributes
+
     @return The assigned version id.
 } {
+    upvar $array local_array
+
     if { [empty_string_p $version_id] } {
 	set version_id [db_null]
     }
@@ -864,11 +896,17 @@ ad_proc -private apm_package_install_version {
 	set release_date [db_null]
     }
 
-    return [db_exec_plsql version_insert {}]
+    set version_id [db_exec_plsql version_insert {}]
 
-   # Every package provides by default the service that is the package itself
-   # This spares the developer from having to visit the dependency page
-   apm_interface_add $version_id $package_key $version_name
+    apm::package_version::attributes::store \
+        -version_id $version_id \
+        -array local_array
+
+    # Every package provides by default the service that is the package itself
+    # This spares the developer from having to visit the dependency page
+    apm_interface_add $version_id $package_key $version_name
+
+    return $version_id
 }
 
 
@@ -892,7 +930,7 @@ ad_proc -private apm_package_deinstall {
     regsub {@.+} [cc_email_from_party [ad_get_user_id]] "" my_email_name
 
     set backup_dir "[apm_workspace_dir]/$package_key-removed-$my_email_name-[ns_fmttime [ns_time] "%Y%m%d-%H:%M:%S"]"
-    
+
     apm_callback_and_log $callback "
     <li>Moving <tt>packages/$package_key</tt> to $backup_dir... "
 
@@ -921,7 +959,7 @@ ad_proc -private apm_package_delete {
     {-remove_files:boolean}
     package_key
 } {
-    
+
     Deinstall a package from the system. Will unmount and uninstantiate
     package instances, invoke any before-unstall callback, source any
     provided sql drop scripts, remove message keys, and delete
@@ -932,30 +970,46 @@ ad_proc -private apm_package_delete {
 
     # Unmount all instances of this package with the Tcl API that 
     # invokes before-unmount callbacks
-    db_foreach all_package_instances {
-        select site_nodes.node_id
-        from apm_packages, site_nodes
-        where apm_packages.package_id = site_nodes.object_id
-        and   apm_packages.package_key = :package_key
-    } {
-        set url [site_node::get_url -node_id $node_id]
-        apm_callback_and_log $callback "Unmounting package instance at url $url <br />"
-        site_node::unmount -node_id $node_id
-    }    
+    db_transaction {
+        db_foreach all_package_instances {
+            select site_nodes.node_id
+            from apm_packages, site_nodes
+            where apm_packages.package_id = site_nodes.object_id
+            and   apm_packages.package_key = :package_key
+        } {
+            set url [site_node::get_url -node_id $node_id]
+            apm_callback_and_log $callback "Unmounting package instance at url $url <br />"
+            site_node::unmount -node_id $node_id
+        }    
 
-    # Delete the package instances with Tcl API that invokes 
-    # before-uninstantiate callbacks
-    db_foreach all_package_instances {
-        select package_id
-        from apm_packages
-        where package_key = :package_key
-    } {
-        apm_callback_and_log $callback "Deleting package instance $package_id <br />"
-        apm_package_instance_delete $package_id
+        # Delete the package instances with Tcl API that invokes 
+        # before-uninstantiate callbacks
+        db_foreach all_package_instances {
+            select package_id
+            from apm_packages
+            where package_key = :package_key
+        } {
+            apm_callback_and_log $callback "Deleting package instance $package_id <br />"
+            apm_package_instance_delete $package_id
+        }
+
+        # Invoke the before-uninstall Tcl callback before the sql drop scripts
+        apm_invoke_callback_proc -version_id $version_id -type before-uninstall
+
+        # Unregister I18N messages
+        lang::catalog::package_delete -package_key $package_key
+
+        # Remove package from APM tables
+        apm_callback_and_log $callback "<li>Deleting $package_key..."
+        db_exec_plsql apm_package_delete {
+    	begin
+    	    apm_package_type.drop_type(
+    	        package_key => :package_key,
+    	        cascade_p => 't'
+                );
+    	end;
+        }
     }
-
-    # Invoke the before-uninstall Tcl callback before the sql drop scripts
-    apm_invoke_callback_proc -version_id $version_id -type before-uninstall
 
     # Source SQL drop scripts
     if {![empty_string_p $sql_drop_scripts]} {
@@ -964,25 +1018,11 @@ ad_proc -private apm_package_delete {
     <ul>
     "
         foreach path $sql_drop_scripts {
-    	apm_callback_and_log $callback "<li><pre>"
-    	db_source_sql_file -callback $callback "[acs_package_root_dir $package_key]/$path"
-    	apm_callback_and_log $callback "</pre>"
+        	apm_callback_and_log $callback "<li><pre>"
+        	db_source_sql_file -callback $callback "[acs_package_root_dir $package_key]/$path"
+        	apm_callback_and_log $callback "</pre>"
         }
     }    
-
-    # Unregister I18N messages
-    lang::catalog::package_delete -package_key $package_key
-
-    # Remove package from APM tables
-    apm_callback_and_log $callback "<li>Deleting $package_key..."
-    db_exec_plsql apm_package_delete {
-	begin
-	    apm_package_type.drop_type(
-	        package_key => :package_key,
-	        cascade_p => 't'
-            );
-	end;
-    }
 
     # Optionally remove the files from the filesystem
     if {$remove_files_p==1} {
@@ -1015,7 +1055,7 @@ ad_proc -private apm_package_version_delete {
 }
 
 ad_proc -public apm_package_version_count {package_key} {
-    
+
     @return The number of versions of the indicated package.
 } {
     return [db_string apm_package_version_count {
@@ -1053,7 +1093,7 @@ ad_proc -private apm_package_install_data_model {
     if { ![empty_string_p $data_model_files] } {
 	apm_callback_and_log $callback "<p><li>Installing data model for $version(package-name) $version(name)...\n"
     }
-    
+
     foreach item $data_model_files {
 	set file_path [lindex $item 0]
 	set file_type [lindex $item 1]
@@ -1094,6 +1134,15 @@ ad_proc -private apm_package_install_data_model {
 
     if {$ul_p} {
 	apm_callback_and_log $callback "</ul><p>"
+    }
+
+    if { [llength $data_model_files] } {
+        #Installations/upgrades are done in a separate process, making
+        #changes that could affect our sessions.  This is particularly a
+        #problem with the content_item package on Oracle.  To be on the safe
+        #side we refresh the db connections after each install/upgrade.
+        ns_log Debug "apm_package_install_data_model: Bouncing db pools."
+        db_bounce_pools
     }
 }
 
@@ -1195,9 +1244,9 @@ ad_proc -private apm_package_install_owners_prepare {owner_names owner_uris } {
 }
 
 ad_proc -private apm_package_install_owners { {-callback apm_dummy_callback} owners version_id} {
-    
+
     Install all of the owners of the package version.
-    
+
 } {
     db_dml apm_delete_owners {
 	delete from apm_package_owners where version_id = :version_id
@@ -1354,19 +1403,26 @@ ad_proc -public apm_package_register {
 }
 
 ad_proc -public apm_version_update {
-    {
-	-callback apm_dummy_callback
-    }
+    {-callback apm_dummy_callback}
+    {-array:required}
     version_id version_name version_uri summary description description_format vendor vendor_uri auto_mount {release_date ""} 
 } {
 
     Update a version in the system to new information.
 } {
+    upvar $array local_array
+
     if { [empty_string_p $release_date] } {
  	set release_date [db_null]
     }
 
-    return [db_exec_plsql apm_version_update {}]
+    set version_id [db_exec_plsql apm_version_update {}]
+
+    apm::package_version::attributes::store \
+        -version_id $version_id \
+        -array local_array
+
+    return $version_id
 }
 
 
@@ -1458,7 +1514,7 @@ ad_proc -private apm_upgrade_for_version_p {path initial_version_name final_vers
 }
 
 ad_proc -private apm_order_upgrade_scripts {upgrade_script_names} {
-    
+
     Upgrade scripts are ordered so that they may be executed in a sequence
     that upgrades package.  For example, if you start at version 1.0, and need to go
     to version 2.0, a correct order would be 1.0-1.5, 1.5-1.6, 1.6-2.0.
@@ -1476,7 +1532,7 @@ ad_proc -private apm_upgrade_script_compare {f1 f2} {
     # Strip off any path information.
     set f1 [lindex [split $f1 /] end]
     set f2 [lindex [split $f2 /] end]
-    
+
     # Get the version number from, e.g. the 2.0 from upgrade-2.0-3.0.sql 
     if {[regexp {\-(.*)-.*.sql} $f1 match f1_version_from] && 
     [regexp {\-(.*)-.*.sql} $f2 match f2_version_from]} {
@@ -1642,6 +1698,16 @@ ad_proc -private apm_mount_core_packages {} {
     ns_log Notice "apm_mount_core_packages: Finished mounting of core packages"
 }
 
+ad_proc -public apm_version_sortable {
+    version
+} {
+    Return a sortable version of the version name.
+
+    @author Jeff Davis
+} {
+    return [db_string sortable_version {}]
+}
+
 ad_proc -public apm_version_names_compare {
     version_name_1
     version_name_2
@@ -1665,17 +1731,17 @@ ad_proc -public apm_version_names_compare {
     @param version_name_2 the second version name
 
     @return 
-    
+
     <ul>
 
       <li> -1: the first version is smallest
 
       <li> 0: they're identical
-    
+
       <li> 1: the second version is smallest
 
     </ul>
-    
+
     @author Lars Pind
 } {
     db_1row select_sortable_versions {}
@@ -1707,9 +1773,9 @@ ad_proc -public apm_upgrade_logic {
     fall within the from_version_name and to_version_name it'll get executed in the caller's namespace, ordered by the from_version.
 
     <p>
-    
+
     Example:
-    
+
     <blockquote><pre>
 
     ad_proc my_upgrade_callback {
@@ -1737,9 +1803,9 @@ ad_proc -public apm_upgrade_logic {
             }
         }
     }
-    
+
     </pre></blockquote>
-    
+
     @param from_version_name The version you're upgrading from, e.g. '1.3'.
     @param to_version_name The version you're upgrading to, e.g. '2.4'.
     @param spec The code chunks in the format described above
@@ -1749,7 +1815,7 @@ ad_proc -public apm_upgrade_logic {
     if { [expr [llength $spec] % 3] != 0 } {
         error "The length of spec should be dividable by 3"
     }
-    
+
     array set chunks [list]
     foreach { elm_from elm_to elm_chunk } $spec {
 
@@ -1769,6 +1835,12 @@ ad_proc -public apm_upgrade_logic {
 }
 
 
+##############
+#
+# Repository procs
+#
+#############
+
 ad_proc -private apm_get_package_repository {
     {-repository_url ""}
     {-array:required}
@@ -1778,7 +1850,7 @@ ad_proc -private apm_get_package_repository {
 
     @param repository_url The URL for the repository channel to get from, or the empty string to
                           seach the local file system instead.
-    
+
     @param array          Name of an array where you want the repository stored. It will be keyed by package-key,
                           and each entry will be an array list list what's returned by apm_read_package_info_file.
 
@@ -1793,7 +1865,7 @@ ad_proc -private apm_get_package_repository {
 
     if { ![empty_string_p $repository_url] } {
         set manifest_url "${repository_url}manifest.xml"
-    
+
         # See if we already have it in a client property
         set manifest [ad_get_client_property acs-admin [string range $manifest_url end-49 end]]
 
@@ -1824,6 +1896,10 @@ ad_proc -private apm_get_package_repository {
             set version(package.type) [xml_node_get_content [xml_node_get_first_child_by_name $package_node "package-type"]]
             set version(download_url) [xml_node_get_content [xml_node_get_first_child_by_name $package_node "download-url"]]
             set version(summary)      [xml_node_get_content [xml_node_get_first_child_by_name $package_node "summary"]]
+            
+            apm::package_version::attributes::parse_xml \
+                -parent_node $package_node \
+                -array version            
             
             foreach dependency_type { provides requires } {
                 set version($dependency_type) {}
@@ -1897,9 +1973,385 @@ ad_proc -public apm_get_repository_channel {} {
     return [join [lrange $kernel_versionv 0 1] "-"]
 }
 
+ad_proc -private apm_load_install_xml {filename binds} {
+    Loads an install file and returns the root node.
+    errors out if the file is not there.
+    substitutes variables before parsing so you can provide interpolated values.
+    @param filename relative to serverroot, leading slash needed.
+    @param binds list of {variable value variable value ...}
+
+    @return root_node of the parsed xml file.
+
+    @author Jeff Davis davis@xarg.net
+    @creation-date 2003-10-30
+} {
+    # Abort if there is no install.xml file
+    set filename [acs_root_dir]$filename
+
+    if { ![file exists $filename] } {
+        error "File $filename not found"
+    }
+
+    # Read the whole file
+    set file [open $filename]
+    set __the_body__ [read $file]
+    close $file
+    # Interpolate the vars.
+    if {![empty_string_p $binds]} { 
+        foreach {var val} $binds {
+            set $var [ad_quotehtml $val]
+        }
+        if {![info exists Id]} { 
+            set Id {$Id}
+        }
+        if {[catch {set __the_body__ [subst -nobackslashes -nocommands ${__the_body__}]} err]} { 
+            error $err
+        }
+    }
+
+    set root_node [xml_doc_get_first_node [xml_parse -persist ${__the_body__}]]
+    return $root_node
+}
+
+ad_proc -private ::install::xml::action::community-new { node } {
+    Include another install file to create a community.
+
+    see cop-base/lib/install.xml for an example.
+
+    @author Jeff Davis davis@xarg.net
+    @creation-date 2004-07-28
+
+} {
+    set src [apm_required_attribute_value $node src]
+
+    set base_url [apm_required_attribute_value $node base_url]
+    set name [apm_required_attribute_value $node name]
+    set Description [apm_attribute_value -default {} $node Description]
+    set DescriptionFormat [apm_attribute_value -default "text/plain" $node DescriptionFormat]
+
+    set binds [list \
+                   base_url $base_url \
+                   name $name \
+                   Description $Description \
+                   DescriptionFormat $DescriptionFormat \
+                   ]
+
+    set out [apm::process_install_xml -nested $src $binds]
+    return $out 
+}
 
 
+ad_proc -public apm::process_install_xml {
+    -nested:boolean
+    filename binds
+} {
+    process an xml install definition file which is expected to contain 
+    directives to install, mount and configure a series of packages.
 
+    @parameter filename path to the xml file relative to serverroot.
+    @param binds list of {variable value variable value ...}
+
+    @return list of messages
+
+    @author Jeff Davis (swiped from acs-bootstrap-installer though)
+    @creation-date 2003-10-30
+} {
+    variable ::install::xml::ids
+    # If it's not a nested call then initialize the ids array.
+    # If it is nested we will typically need id's from the parent
+    if {!$nested_p} {
+        array unset ids 
+        array set ids [list]
+  
+        # set default ids for the main site and core packages
+        set ids(ACS_KERNEL) [apm_package_id_from_key acs-kernel]
+        set ids(ACS_TEMPLATING) [apm_package_id_from_key acs-templating]
+        set ids(ACS_AUTHENTICATION) [apm_package_id_from_key acs-authentication]
+        set ids(ACS_LANG) [apm_package_id_from_key acs-lang]
+        set ids(MAIN_SITE) [subsite::main_site_id]
+    }
+
+    variable ::template::parse_level
+    lappend ::template::parse_level [info level]
+
+    set root_node [apm_load_install_xml $filename $binds] 
+
+    set acs_application(name) [apm_required_attribute_value $root_node name]
+    set acs_application(pretty_name) [apm_attribute_value -default $acs_application(name) $root_node pretty-name]
+
+    lappend out "Loading packages for the $acs_application(pretty_name) application."
+
+    set actions [xml_node_get_children_by_name $root_node actions]
+
+    if { [llength $actions] != 1 } {
+        ns_log Error "Error in \"$filename\": only one action node is allowed, found: [llength $actions]"
+        error "Error in \"$filename\": only one action node is allowed"
+    }
+
+    set actions [xml_node_get_children [lindex $actions 0]]
+
+    foreach action $actions {
+        set install_proc_out [apm_invoke_install_proc -node $action]
+        set out [concat $out $install_proc_out]
+    }
+
+    # pop off parse level
+    template::util::lpop parse_level
+
+    return $out
+}
+
+ad_proc -private apm_invoke_install_proc {
+  {-type "action"}
+  {-node:required}
+} {
+    read an xml install element and invoke the appropriate processing
+    procedure.
+
+    @param type the type of element to search for
+    @param node the xml node to process
+
+    @return the result of the invoked proc
+
+    @author Lee Denison
+    @creation-date 2004-06-16
+} {
+    set name [xml_node_get_name $node]
+    set command [info commands ::install::xml::${type}::${name}]
+
+    if {[llength $command] == 0} {
+        error "Error: got bad node \"$name\""
+        }
+
+    return [eval [list ::install::xml::${type}::${name} $node]]
+}
+ 
+##############
+#
+# Dynamic package version attributes (namespace apm::package_version::attributes)
+#
+#############
+
+ad_proc -private apm::package_version::attributes::get_spec {} {
+    Return dynamic attributes of package versions in
+    an array list. The rationale for introducing the dynamic
+    package version attributes is to make it easy to add
+    new package attributes.
+
+    @return An array list with attribute names as keys and
+            attribute specs as values. The attribute specs
+            are themselves array lists with keys default_value,
+            validation_proc, and pretty_name.
+
+    @author Peter Marklund
+} {
+    return {
+        maturity {
+            pretty_name Maturity
+            default_value 0
+            validation_proc apm::package_version::attributes::validate_maturity
+        }
+        license {
+            pretty_name License
+        }
+        license_url {
+            pretty_name "License URL"
+        }
+    }
+}
+
+ad_proc -private apm::package_version::attributes::get_pretty_name { attribute_name } {
+    Return the pretty name of attribute with given short name.
+
+    @author Peter Marklund
+} {
+    array set attributes [apm::package_version::attributes::get_spec]
+    array set attribute $attributes($attribute_name)
+
+    return $attribute(pretty_name)
+}
+
+ad_proc -private apm::package_version::attributes::validate_maturity { maturity } {
+    set error_message ""
+    if { ![empty_string_p $maturity] } {
+        if { ![regexp {^-?[0-9]+$} $maturity] } {
+            set error_message "Maturity must be integer"
+        } elseif { [expr $maturity < -1 || $maturity > 3] } {
+            set error_message "Matuirity must be integer between -1 and 3"
+        }
+    }
+
+    return $error_message
+}
+
+ad_proc -private apm::package_version::attributes::maturity_int_to_text { maturity } {
+    Get the internationalized maturity description
+    corresponding to the given integer package maturity level.
+
+    @author Peter Marklund
+} {
+    if {[exists_and_not_null maturity]} {
+
+        if { ![expr $maturity >= -1 && $maturity <= 3] } {
+            error "Maturity must be between -1 and 3 but is \"$maturity\""
+        }
+
+        set maturity_key(-1) "#acs-tcl.maturity_incompatible#"
+        set maturity_key(0) "#acs-tcl.maturity_new_submission#"
+        set maturity_key(1) "#acs-tcl.maturity_immature#"
+        set maturity_key(2) "#acs-tcl.maturity_mature#"
+        set maturity_key(3) "#acs-tcl.maturity_mature_and_standard#"
+
+        set result [lang::util::localize $maturity_key($maturity)]
+
+    } else {
+
+        set result ""
+
+    }
+
+    return $result
+}
+
+ad_proc -private apm::package_version::attributes::parse_xml {
+    {-parent_node:required}
+    {-array:required}
+} {
+    Given the parent node in an XML tree parse the package version attributes
+    and set their values with upvar in the array with given name.
+
+    @param parent_node A reference to the parent XML node of the attribute nodes
+    @param array The name of the array in the callers scope to set the attribute
+                 values in.
+
+    @author Peter Marklund
+} {
+    upvar $array attributes
+
+    array set dynamic_attributes [apm::package_version::attributes::get_spec]
+    foreach attribute_name [array names dynamic_attributes] {
+        set attribute_node [xml_node_get_first_child_by_name $parent_node $attribute_name]
+        array set attribute $dynamic_attributes($attribute_name)
+
+        if { ![empty_string_p $attribute_node] } {
+            # There is a tag for the attribute so use the tag contents
+            set attributes($attribute_name) [xml_node_get_content $attribute_node]
+        } else {
+            # No tag for the attribute - use default value
+            set attributes($attribute_name) [apm::package_version::attributes::default_value $attribute_name]
+        }
+    }
+}
+
+ad_proc -private apm::package_version::attributes::default_value { attribute_name } {
+    Return the default value for the given attribute name.
+
+    @author Peter Marklund
+} {
+    array set dynamic_attributes [apm::package_version::attributes::get_spec]
+    array set attribute $dynamic_attributes($attribute_name)
+
+    if { [info exists attribute(default_value)] } {
+        set default_value $attribute(default_value)
+    } else {
+        # No default value so use the empty string (the default default value)
+        set default_value ""
+    }
+
+    return $default_value
+}
+
+ad_proc -private apm::package_version::attributes::store {
+    {-version_id:required}
+    {-array:required}
+} {
+    Store the dynamic attributes of a certain package version in
+    the database.
+
+    @param version_id The id of the package version to store attribute values for
+    @param array The name of the array in the callers scope containing the
+                 attribute values to store
+
+    @author Peter Marklund
+} {
+    upvar $array attributes
+
+    db_transaction {
+        db_dml clear_old_attributes {
+            delete from apm_package_version_attr
+            where version_id = :version_id
+        }
+
+        array set dynamic_attributes [apm::package_version::attributes::get_spec]
+        foreach attribute_name [array names dynamic_attributes] {
+            if { [info exists attributes($attribute_name)] } {
+                set attribute_value $attributes($attribute_name)
+
+                db_dml insert_attribute {
+                    insert into apm_package_version_attr
+                    (attribute_name, attribute_value, version_id)
+                    values (:attribute_name, :attribute_value, :version_id)
+                }
+            }
+        } 
+    }
+}
+
+ad_proc -private apm::package_version::attributes::get {
+    {-version_id:required}
+    {-array:required}
+} {
+    Set an array with the attribute values of a certain package version.    
+
+    @param version_id The id of the package version to return attribute values for
+
+    @param The name of an array in the callers environment in which the attribute values
+           will be set (with attribute names as keys and attribute values as values).
+
+    @author Peter Marklund
+} {
+    upvar $array attributes
+
+    db_foreach select_attribute_values {
+        select attribute_name,
+               attribute_value
+        from apm_package_version_attr
+        where version_id = :version_id
+    } {
+        set attributes($attribute_name) $attribute_value
+    }
+}
+
+ad_proc -private apm::package_version::attributes::generate_xml {
+    {-version_id:required}
+    {-indentation ""}
+} {
+    Return an XML string with the dynamic package version attributes for
+    a certain package version.
+
+    @param version_id The id of the package version to generate the attribute
+           XML for.
+    @param indentation A string with whitespace to indent each tag with
+
+    @author Peter Marklund
+} {
+    set xml_string ""
+
+    array set attributes [apm::package_version::attributes::get \
+                          -version_id $version_id \
+                          -array attributes]
+
+    # sort the array so that the xml is always in the same order so 
+    # its stable for CVS.
+    foreach attribute_name [lsort [array names attributes]] {
+        # Only output tag if its value is non-empty
+        if { ![empty_string_p $attributes($attribute_name)] } {
+            append xml_string "${indentation}<${attribute_name}>[ad_quotehtml $attributes($attribute_name)]</${attribute_name}>\n"
+        }
+    }
+
+    return $xml_string
+}
 
 
 ##############
@@ -1908,15 +2360,3 @@ ad_proc -public apm_get_repository_channel {} {
 #
 #############
 
-ad_proc -private -deprecated -warn apm_package_instantiate_and_mount {
-    {-callback apm_dummy_callback} 
-    package_key
-} { 
-    Instantiate and mount a package of the indicated type. This proc
-    has been deprecated and will be removed. Please change to using
-    site_node::instantiate_and_mount instead.
- 
-    @see site_node::instantiate_and_mount
-} {
-    site_node::instantiate_and_mount -package_key $package_key
-}

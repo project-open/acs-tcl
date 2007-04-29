@@ -11,7 +11,7 @@
 
   <fullquery name="apm_parameter_register.apm_parameter_cache_update">      
     <querytext>
-      select v.package_id, p.parameter_name, 
+      select coalesce(v.package_id, 0) as package_id, p.parameter_name, 
       case when v.value_id is null then p.default_value else v.attr_value end as attr_value
       from apm_parameters p left outer join apm_parameter_values v
       using (parameter_id)
@@ -84,6 +84,14 @@
       min_n_values   = :min_n_values,
       max_n_values   = :max_n_values
       where parameter_id = :parameter_id
+    </querytext>
+  </fullquery>
+  
+  <fullquery name="apm_parameter_update.object_title_update">      
+    <querytext>
+	update acs_objects
+	set title = :parameter_name
+	where object_id = :parameter_id
     </querytext>
   </fullquery>
   

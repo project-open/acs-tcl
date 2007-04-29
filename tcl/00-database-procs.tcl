@@ -7,6 +7,21 @@ ad_library {
     @cvs-id 00-database-procs.tcl,v 1.19.2.5 2003/05/23 13:11:29 lars Exp
 }
 
+# Database caching.
+#
+# Values returned by a query are cached if you pass the "-cache_key" switch
+# to the database procedure.  The switch value will be used as the key in the
+# ns_cache eval call used to execute the query and processing code.  The
+# db_flush proc should be called to flush the cache when appropriate.  The
+# "-cache_pool" parameter can be used to specify the cache pool to be used,
+# and defaults to db_cache_pool.  The # size of the default cache is governed
+# by the kernel parameter "DBCacheSize" in the "caching" section.
+#
+# Currently db_string, db_list, db_list_of_lists, db_0or1row, and db_multirow support
+# caching.
+#
+# Don Baccus 2/25/2006 - my 52nd birthday!
+
 # As originally released in (at least) ACS 4.2 through OpenACS 4.6,
 # this DB API supported only a single, default database.  You could
 # define any number of different database drivers and pools in
@@ -60,6 +75,10 @@ ad_library {
 # implemented yet!
 #
 # --atp@piskorski.com, 2003/03/16 21:30 EST
+
+# NOTE: don't forget to add your new pools into the 
+# ns_section ns/db/pools  
+
 
 # The "driverkey" indirection layer:
 #
@@ -188,7 +207,7 @@ ad_proc -private -private db_driverkey {{
         # These are the default driverkey values, if they are not set
         # in the config file:
 
-        if { [string equal $driver {Oracle8}] } {
+        if { [string match Oracle* $driver] } {
             set driverkey {oracle}
         } elseif { [string equal $driver {PostgreSQL}] } {
             set driverkey {postgresql}
@@ -206,7 +225,7 @@ ad_proc -private -private db_driverkey {{
 }
 
 
-ad_proc db_type { } {
+ad_proc -public db_type { } {
     @return the RDBMS type (i.e. oracle, postgresql) this OpenACS installation is using.  The nsv ad_database_type is set up during the bootstrap process.
 } {
     # Currently this should always be either "oracle" or "postgresql":
@@ -215,7 +234,7 @@ ad_proc db_type { } {
     return [nsv_get ad_database_type .]
 }
 
-ad_proc db_compatible_rdbms_p { db_type } {
+ad_proc -public db_compatible_rdbms_p { db_type } {
     @return 1 if the given db_type is compatible with the current RDBMS.  
 } {
     return [expr { [empty_string_p $db_type] || [string equal [db_type] $db_type] }]
@@ -240,7 +259,7 @@ ad_proc -deprecated db_package_supports_rdbms_p { db_type_list } {
     return 0
 }
 
-ad_proc db_legacy_package_p { db_type_list } {
+ad_proc -private db_legacy_package_p { db_type_list } {
     @return 1 if the package is a legacy package.  We can only tell for certain if it explicitly supports Oracle 8.1.6 rather than the OpenACS more general oracle.
 } {
     if { [lsearch $db_type_list "oracle-8.1.6"] != -1 } {
@@ -249,20 +268,20 @@ ad_proc db_legacy_package_p { db_type_list } {
     return 0
 }
 
-ad_proc db_version { } {
+ad_proc -public db_version { } {
     @return the RDBMS version (i.e. 8.1.6 is a recent Oracle version; 7.1 a
     recent PostgreSQL version.
 } {
     return [nsv_get ad_database_version .]
 }
 
-ad_proc db_current_rdbms { } {
+ad_proc -public db_current_rdbms { } {
     @return the current rdbms type and version.
 } {
     return [db_rdbms_create [db_type] [db_version]]
 }
 
-ad_proc db_known_database_types { } {
+ad_proc -public db_known_database_types { } {
     @return a list of three-element lists describing the database engines known
     to OpenACS.  Each sublist contains the internal database name (used in file
     paths, etc), the driver name, and a "pretty name" to be used in selection
@@ -289,7 +308,7 @@ ad_proc db_null { } {
     return ""
 }
 
-ad_proc db_quote { string } { Quotes a string value to be placed in a SQL statement. } {
+ad_proc -public db_quote { string } { Quotes a string value to be placed in a SQL statement. } {
     regsub -all {'} "$string" {''} result
     return $result
 }
@@ -372,7 +391,7 @@ ad_proc -public db_nextval {{ -dbn "" } sequence } {
 }
 
 
-ad_proc db_nth_pool_name {{ -dbn "" } n } { 
+ad_proc -public db_nth_pool_name {{ -dbn "" } n } { 
     @return the name of the pool used for the nth-nested selection (0-relative). 
 
     @param dbn The database name to use.  If empty_string, uses the default database.
@@ -410,7 +429,7 @@ ad_proc -public db_with_handle {{ -dbn "" } db code_block } {
         set errno [catch {
             set db [ns_db gethandle $pool]
         } error]
-        ad_call_proc_if_exists ds_collect_db_call $db gethandle "" $pool $start_time $errno $error
+        ds_collect_db_call $db gethandle "" $pool $start_time $errno $error
         lappend db_state(handles) $db
         if { $errno } {
             global errorInfo errorCode
@@ -437,14 +456,14 @@ ad_proc -public db_with_handle {{ -dbn "" } db code_block } {
     # If errno is 1, it's an error, so return errorCode and errorInfo;
     # if errno = 2, it's a return, so don't try to return errorCode/errorInfo
     # errno = 3 or 4 give undefined results
-    
+
     if { $errno == 1 } {
         
         # A real error occurred
         global errorInfo errorCode
         return -code $errno -errorcode $errorCode -errorinfo $errorInfo $error
     }
-    
+
     if { $errno == 2 } {
         
         # The code block called a "return", so pass the message through but don't try
@@ -549,7 +568,7 @@ ad_proc -public db_exec_plsql {{ -dbn "" } statement_name sql args } {
     <p>
     <pre>
     db_exec_plsql delete_note { }</pre>
-    
+
     <p>
     <code>yourfilename-oracle.xql</code>:<br>
     <p>
@@ -637,14 +656,14 @@ ad_proc -public db_exec_plsql {{ -dbn "" } statement_name sql args } {
             # if a table is being created, we need to bypass things, too (OpenACS - Ben).
             set test_sql [db_qd_replace_sql $full_statement_name $sql]
             if {[regexp -nocase -- {^\s*select} $test_sql match]} {
-                ns_log Debug "PLPGSQL: bypassed anon function"
+                # ns_log Debug "PLPGSQL: bypassed anon function"
                 set selection [db_exec 0or1row $db $full_statement_name $sql]
             } elseif {[regexp -nocase -- {^\s*create table} $test_sql match] || [regexp -nocase -- {^\s*drop table} $test_sql match]} {
-                ns_log Debug "PLPGSQL: bypassed anon function -- create/drop table"
+                ns_log Debug "PLPGSQL: bypassed anon function for create/drop table"
                 set selection [db_exec dml $db $full_statement_name $sql]
                 return ""
             } else {
-                ns_log Debug "PLPGSQL: using anonymous function"
+                # ns_log Debug "PLPGSQL: using anonymous function"
                 set selection [db_exec_plpgsql $db $full_statement_name $sql \
                                    $statement_name]
             }
@@ -734,7 +753,7 @@ ad_proc -private db_exec_plpgsql { db statement_name pre_sql fname } {
     set errinfo $errorInfo
     set errcode $errorCode
 
-    ad_call_proc_if_exists ds_collect_db_call $db 0or1row $statement_name $sql $start_time $errno $error
+    ds_collect_db_call $db 0or1row $statement_name $sql $start_time $errno $error
 
     if { $errno == 2 } {
 	return $error
@@ -867,7 +886,7 @@ ad_proc -public db_release_unused_handles {{ -dbn "" }} {
 
             set start_time [clock clicks -milliseconds]
             ns_db releasehandle $db
-            ad_call_proc_if_exists ds_collect_db_call $db releasehandle "" "" $start_time 0 ""
+            ds_collect_db_call $db releasehandle "" "" $start_time 0 ""
             incr index_to_examine -1
         }
         set db_state(handles) [lrange $db_state(handles) 0 $index_to_examine]
@@ -883,7 +902,7 @@ ad_proc -private db_getrow { db selection } {
 } {
     set start_time [clock clicks -milliseconds]
     set errno [catch { return [ns_db getrow $db $selection] } error]
-    ad_call_proc_if_exists ds_collect_db_call $db getrow "" "" $start_time $errno $error
+    ds_collect_db_call $db getrow "" "" $start_time $errno $error
     if { $errno == 2 } {
         return $error
     }
@@ -900,6 +919,7 @@ ad_proc -private db_exec { type db statement_name pre_sql {ulevel 2} args } {
 
 } {
     set start_time [clock clicks -milliseconds]
+    set start_time_fine [clock seconds]
     set driverkey [db_driverkey -handle_p 1 $db]
 
     # Note: Although marked as private, db_exec is in fact called
@@ -992,7 +1012,15 @@ ad_proc -private db_exec { type db statement_name pre_sql {ulevel 2} args } {
         }
     } error]
 
-    ad_call_proc_if_exists ds_collect_db_call $db $type $statement_name $sql $start_time $errno $error
+    # JCD: we log the clicks, dbname, query time, and statement to catch long running queries.
+    # If we took more than 5 seconds yack about it.
+    if { [expr [clock clicks -milliseconds] - $start_time] > 5000} {
+        ns_log Warning "db_exec: longdb [expr [clock seconds] - $start_time_fine] seconds $db $type $statement_name"
+    } else { 
+        ns_log Debug "db_exec: timing [expr [clock seconds] - $start_time_fine] seconds $db $type $statement_name"
+    }
+
+    ds_collect_db_call $db $type $statement_name $sql $start_time $errno $error
     if { $errno == 2 } {
         return $error
     }
@@ -1002,48 +1030,100 @@ ad_proc -private db_exec { type db statement_name pre_sql {ulevel 2} args } {
 }
 
 
-ad_proc -public db_string {{ -dbn "" } statement_name sql args } {
+ad_proc -public db_string {
+    { -dbn "" }
+     -cache_key
+    {-cache_pool db_cache_pool}
+    statement_name
+    sql
+    args
+ } {
 
     Usage: <b>db_string</b> <i>statement-name sql</i> [ <tt>-default</tt> <i>default</i> ] [ <tt>-bind</tt> <i>bind_set_id</i> | <tt>-bind</tt> <i>bind_value_list</i> ]
   
     @return the first column of the result of the SQL query <i>sql</i>.  If the query doesn't return a row, returns <i>default</i> or raises an error if no <i>default</i> is provided.
 
     @param dbn The database name to use.  If empty_string, uses the default database.
+    @param cache_key Cache the result using given value as the key.  Default is to not cache.
+    @param cache_pool Override the default db_cache_pool
 } {
     # Query Dispatcher (OpenACS - ben)
     set full_name [db_qd_get_fullname $statement_name]
 
     ad_arg_parser { default bind } $args
 
-    db_with_handle -dbn $dbn db {
-        set selection [db_exec 0or1row $db $full_name $sql]
+    if { [info exists cache_key] } {
+        set value [ns_cache eval $cache_pool $cache_key {
+            db_with_handle -dbn $dbn db {
+                set selection [db_exec 0or1row $db $full_name $sql]
+            }
+            if { $selection ne ""} {
+                set selection [list [ns_set value $selection 0]]
+            }
+            set selection
+        }]
+        if { $value eq "" } {
+            if { [info exists default] } {
+                return $default
+            }
+            return -code error "Selection did not return a value, and no default was provided"
+        } else {
+            return [lindex $value 0]
+        }
+    } else {
+        db_with_handle -dbn $dbn db {
+            set selection [db_exec 0or1row $db $full_name $sql]
+        }
+        if { $selection eq ""} {
+            if { [info exists default] } {
+                return $default
+            }
+            return -code error "Selection did not return a value, and no default was provided"
+        }
+        return [ns_set value $selection 0]
     }
 
-    if { [empty_string_p $selection] } {
-        if { [info exists default] } {
-            return $default
-        }
-        return -code error "Selection did not return a value, and no default was provided"
-    }
-    return [ns_set value $selection 0]
 }
 
 
-ad_proc -public db_list {{ -dbn "" } statement_name sql args } {
+ad_proc -public db_list {
+    { -dbn "" }
+    -cache_key
+    {-cache_pool db_cache_pool}
+    statement_name
+    sql
+    args
+} {
 
     Usage: <b>db_list</b> <i>statement-name sql</i> [ <tt>-bind</tt> <i>bind_set_id</i> | <tt>-bind</tt> <i>bind_value_list</i> ]
-    
+
     @return a Tcl list of the values in the first column of the result of SQL query <tt>sql</tt>. 
-    If <tt>sql</tt> doesn't return any rows, returns an empty list. Analogous to <tt>database_to_tcl_list</tt>.
+    If <tt>sql</tt> doesn't return any rows, returns an empty list.
 
     @param dbn The database name to use.  If empty_string, uses the default database.
+    @param cache_key Cache the result using given value as the key.  Default is to not cache.
+    @param cache_pool Override the default db_cache_pool
 } {
     ad_arg_parser { bind } $args
 
     # Query Dispatcher (OpenACS - SDW)
     set full_statement_name [db_qd_get_fullname $statement_name]
 
-    # Can't use db_foreach here, since we need to use the ns_set directly.
+    # Can't use db_foreach in this proc, since we need to use the ns_set directly.
+
+    if { [info exists cache_key] } {
+        return [ns_cache eval $cache_pool $cache_key {
+                   db_with_handle -dbn $dbn db {
+                       set selection [db_exec select $db $full_statement_name $sql]
+                       set result [list]
+                       while { [db_getrow $db $selection] } {
+                           lappend result [ns_set value $selection 0]
+                       }
+                   }
+                   set result
+               }]
+    }
+        
     db_with_handle -dbn $dbn db {
         set selection [db_exec select $db $full_statement_name $sql]
         set result [list]
@@ -1052,19 +1132,31 @@ ad_proc -public db_list {{ -dbn "" } statement_name sql args } {
         }
     }
     return $result
+
 }
 
 
-ad_proc -public db_list_of_lists {{ -dbn "" } statement_name sql args } {
+ad_proc -public db_list_of_lists {
+    { -dbn "" }
+    -cache_key
+    {-cache_pool db_cache_pool}
+    statement_name
+    sql
+    args
+} {
 
     Usage: <b>db_list_of_lists</b> <i>statement-name sql</i> [ <tt>-bind</tt> <i>bind_set_id</i> | <tt>-bind</tt> <i>bind_value_list</i> ]
 
     @return a Tcl list, each element of which is a list of all column 
     values in a row of the result of the SQL query<tt>sql</tt>. If 
     <tt>sql</tt> doesn't return any rows, returns an empty list. 
-    Analogous to <tt>database_to_tcl_list_list</tt>.
+
+    It checks if the element is I18N and replaces it, thereby
+    reducing the need to do this with every single package
 
     @param dbn The database name to use.  If empty_string, uses the default database.
+    @param cache_key Cache the result using given value as the key.  Default is to not cache.
+    @param cache_pool Override the default db_cache_pool
 } {
     ad_arg_parser { bind } $args
 
@@ -1072,20 +1164,37 @@ ad_proc -public db_list_of_lists {{ -dbn "" } statement_name sql args } {
     set full_statement_name [db_qd_get_fullname $statement_name]
 
     # Can't use db_foreach here, since we need to use the ns_set directly.
+
+    if { [info exists cache_key] } {
+        return [ns_cache eval $cache_pool $cache_key {
+            db_with_handle -dbn $dbn db {
+                set selection [db_exec select $db $full_statement_name $sql]
+                set result [list]
+                while { [db_getrow $db $selection] } {
+                    set this_result [list]
+                    for { set i 0 } { $i < [ns_set size $selection] } { incr i } {
+		        lappend this_result  [ns_set value $selection $i]
+                    }
+                    lappend result $this_result
+                }
+            }
+            set result
+        }]
+    }
+
     db_with_handle -dbn $dbn db {
         set selection [db_exec select $db $full_statement_name $sql]
-
         set result [list]
-
         while { [db_getrow $db $selection] } {
             set this_result [list]
             for { set i 0 } { $i < [ns_set size $selection] } { incr i } {
-                lappend this_result [ns_set value $selection $i]
+		lappend this_result  [ns_set value $selection $i]
             }
             lappend result $this_result
         }
     }
     return $result
+
 }
 
 
@@ -1149,7 +1258,7 @@ ad_proc -public db_foreach {{ -dbn "" } statement_name sql args } {
         # This block is optional.
         ns_write "&lt;li&gt;No greebles!\n"
     }</pre></blockquote>
-    
+
     @param dbn The database name to use.  If empty_string, uses the default database.
 } {
     # Query Dispatcher (OpenACS - ben)
@@ -1242,6 +1351,200 @@ ad_proc -public db_foreach {{ -dbn "" } statement_name sql args } {
 }
 
 
+proc db_multirow_helper {} {
+    uplevel 1 {
+        if { !$append_p || ![info exists counter]} {
+            set counter 0
+        } 
+
+        db_with_handle -dbn $dbn db {
+            set selection [db_exec select $db $full_statement_name $sql]
+            set local_counter 0
+
+            # Make sure 'next_row' array doesn't exist
+            # The this_row and next_row variables are used to always execute the code block one result set row behind,
+            # so that we have the opportunity to peek ahead, which allows us to do group by's inside
+            # the multirow generation
+            # Also make the 'next_row' array available as a magic __db_multirow__next_row variable
+            upvar 1 __db_multirow__next_row next_row
+            if { [info exists next_row] } {
+                unset next_row
+            }
+            
+            set more_rows_p 1
+            while { 1 } {
+
+                if { $more_rows_p } {
+                    set more_rows_p [db_getrow $db $selection]
+                } else {
+                    break
+                }
+                
+                # Setup the 'columns' part, now that we know the columns in the result set
+                # And save variables which we might clobber, if '-unclobber' switch is specified.
+                if { $local_counter == 0 } {
+                    for { set i 0 } { $i < [ns_set size $selection] } { incr i } {
+                        lappend local_columns [ns_set key $selection $i]
+                    }
+                    set local_columns [concat $local_columns $extend]
+                    if { !$append_p || ![info exists columns] } {
+                        # store the list of columns in the var_name:columns variable
+                        set columns $local_columns
+                    } else {
+                        # Check that the columns match, if not throw an error
+                        if { ![string equal [join [lsort -ascii $local_columns]] [join [lsort -ascii $columns]]] } {
+                            error "Appending to a multirow with differing columns.
+    Original columns     : [join [lsort -ascii $columns] ", "].
+    Columns in this query: [join [lsort -ascii $local_columns] ", "]" "" "ACS_MULTIROW_APPEND_COLUMNS_MISMATCH"
+                        }
+                    }
+
+                    # Save values of columns which we might clobber
+                    if { $unclobber_p && ![empty_string_p $code_block] } {
+                        foreach col $columns {
+                            upvar 1 $col column_value __saved_$col column_save
+
+                            if { [info exists column_value] } {
+                                if { [array exists column_value] } {
+                                    array set column_save [array get column_value]
+                                } else {
+                                    set column_save $column_value
+                                }
+
+                                # Clear the variable
+                                unset column_value
+                            }
+                        }
+                    }
+                }
+
+                if { [empty_string_p $code_block] } {
+                    # No code block - pull values directly into the var_name array.
+
+                    # The extra loop after the last row is only for when there's a code block
+                    if { !$more_rows_p } {
+                        break
+                    }
+                    incr counter
+                    upvar $level_up "$var_name:$counter" array_val
+                    set array_val(rownum) $counter
+                    for { set i 0 } { $i < [ns_set size $selection] } { incr i } {
+                        set array_val([ns_set key $selection $i]) \
+                            [ns_set value $selection $i]
+                    }
+                } else {
+                    # There is a code block to execute
+
+                    # Copy next_row to this_row, if it exists
+                    if { [info exists this_row] } {
+                        unset this_row 
+                    }
+                    set array_get_next_row [array get next_row]
+                    if { ![empty_string_p $array_get_next_row] } {
+                        array set this_row [array get next_row]
+                    }
+
+                    # Pull values from the query into next_row
+                    if { [info exists next_row] } {
+                        unset next_row 
+                    }
+                    if { $more_rows_p } {
+                        for { set i 0 } { $i < [ns_set size $selection] } { incr i } {
+                            set next_row([ns_set key $selection $i]) [ns_set value $selection $i]
+                        }   
+                    }
+
+                    # Process the row
+                    if { [info exists this_row] } {
+                        # Pull values from this_row into local variables
+                        foreach name [array names this_row] {
+                            upvar 1 $name column_value
+                            set column_value $this_row($name)
+                        }
+
+                        # Initialize the "extend" columns to the empty string
+                        foreach column_name $extend {
+                            upvar 1 $column_name column_value
+                            set column_value ""
+                        }
+
+                        # Execute the code block
+                        set errno [catch { uplevel 1 $code_block } error]
+
+                        # Handle or propagate the error. Can't use the usual
+                        # "return -code $errno..." trick due to the db_with_handle
+                        # wrapped around this loop, so propagate it explicitly.
+                        switch $errno {
+                            0 {
+                                # TCL_OK
+                            }
+                            1 {
+                                # TCL_ERROR
+                                global errorInfo errorCode
+                                error $error $errorInfo $errorCode
+                            }
+                            2 {
+                                # TCL_RETURN
+                                error "Cannot return from inside a db_multirow loop"
+                            }
+                            3 {
+                                # TCL_BREAK
+                                ns_db flush $db
+                                break
+                            }
+                            4 {
+                                # TCL_CONTINUE
+                                continue
+                            }
+                            default {
+                                error "Unknown return code: $errno"
+                            }
+                        }
+                     
+                        # Pull the local variables back out and into the array.
+                        incr counter
+                        upvar $level_up "$var_name:$counter" array_val
+                        set array_val(rownum) $counter
+                        foreach column_name $columns {
+                            upvar 1 $column_name column_value
+                            set array_val($column_name) $column_value
+                        }
+                    }
+                }
+                incr local_counter
+            }
+        }
+
+        # Restore values of columns which we've saved
+        if { $unclobber_p && ![empty_string_p $code_block] && $local_counter > 0 } {
+            foreach col $columns {
+                upvar 1 $col column_value __saved_$col column_save
+
+                # Unset it first, so the road's paved to restoring
+                if { [info exists column_value] } {
+                    unset column_value
+                }
+
+                # Restore it
+                if { [info exists column_save] } {
+                    if { [array exists column_save] } {
+                        array set column_value [array get column_save]
+                    } else {
+                        set column_value $column_save
+                    }
+                    
+                    # And then remove the saved col
+                    unset column_save
+                }
+            }
+        }
+        # Unset the next_row variable, just in case
+        if { [info exists next_row] } {
+            unset next_row
+         }
+    }
+}
+
 ad_proc -public db_multirow {
     -local:boolean
     -append:boolean
@@ -1249,13 +1552,17 @@ ad_proc -public db_multirow {
     -unclobber:boolean
     {-extend {}}
     {-dbn ""}
+    -cache_key
+    {-cache_pool db_cache_pool}
     var_name
     statement_name
     sql
     args 
 } {
     @param dbn The database name to use.  If empty_string, uses the default database.
-    
+    @param cache_key Cache the result using given value as the key.  Default is to not cache.
+    @param cache_pool Override the default db_cache_pool
+
     @param unclobber If set, will cause the proc to not overwrite local variables. Actually, what happens
     is that the local variables will be overwritten, so you can access them within the code block. However, 
     if you specify -unclobber, we will revert them to their original state after execution of this proc.
@@ -1276,15 +1583,29 @@ ad_proc -public db_multirow {
     list of column names. 
 
     <p>
-    
+
+    If "cache_key" is set, cache the array that results from the query *and*
+    any code block for future use.  When this result is returned from cache,
+    THE CODE BLOCK IS NOT EXECUTED.  Therefore any values calculated by the
+    code block that aren't listed as arguments to "extend" will
+    not be created.  In practice this impacts relatively few queries, but do
+    take care.
+
+    <p>
+
+    You can not simultaneously append to and cache a multirow.
+
+    <p>
+
     Each row also has a column, rownum, automatically 
     added and set to the row number, starting with 1. Note that this will
     override any column in the SQL statement named 'rownum', also if you're
     using the Oracle rownum pseudo-column.
-    
+
     <p>
-    If the <code>-local</code> is passed, the variables defined                                                            
-    by db_multirow will be set locally (useful if you're compiling dynamic templates                                                           
+
+    If the <code>-local</code> is passed, the variables defined
+    by db_multirow will be set locally (useful if you're compiling dynamic templates
     in a function or similar situations). Use the <code>-upvar_level</code>
     switch to specify how many levels up the variable should be set.
 
@@ -1367,199 +1688,44 @@ ad_proc -public db_multirow {
     } else {
         return -code error "Expected 1 or 3 arguments after switches"
     }
-    
+
+    if { [info exists cache_key] && $append_p } {
+        return -code error "Can't append and cache a multirow datasource simultaneously"
+    }
+
     upvar $level_up "$var_name:rowcount" counter
     upvar $level_up "$var_name:columns" columns
 
-    if { !$append_p || ![info exists counter]} {
-        set counter 0
-    } 
+    if { [info exists cache_key] } {
 
-    db_with_handle -dbn $dbn db {
-        set selection [db_exec select $db $full_statement_name $sql]
-        set local_counter 0
+        set value [ns_cache eval $cache_pool $cache_key {
+            db_multirow_helper
 
-        # Make sure 'next_row' array doesn't exist
-        # The this_row and next_row variables are used to always execute the code block one result set row behind,
-        # so that we have the opportunity to peek ahead, which allows us to do group by's inside
-        # the multirow generation
-        # Also make the 'next_row' array available as a magic __db_multirow__next_row variable
-        upvar 1 __db_multirow__next_row next_row
-        if { [info exists next_row] } {
-            unset next_row
+            set values [list]
+
+            for { set count 1 } { $count <= $counter } { incr count } {
+                upvar $level_up "$var_name:[expr {$count}]" array_val
+                lappend values [array get array_val]
+            }
+
+            return [list $counter $columns $values]
+        }]
+
+        set counter [lindex $value 0]
+        set columns [lindex $value 1]
+        set values [lindex $value 2]
+
+        set count 1
+
+        foreach value $values {
+           upvar $level_up "$var_name:[expr {$count}]" array_val
+           array set array_val $value
+           incr count
         }
-        
-        set more_rows_p 1
-        while { 1 } {
-
-            if { $more_rows_p } {
-                set more_rows_p [db_getrow $db $selection]
-            } else {
-                break
-            }
-            
-            # Setup the 'columns' part, now that we know the columns in the result set
-            # And save variables which we might clobber, if '-unclobber' switch is specified.
-            if { $local_counter == 0 } {
-                for { set i 0 } { $i < [ns_set size $selection] } { incr i } {
-                    lappend local_columns [ns_set key $selection $i]
-                }
-                set local_columns [concat $local_columns $extend]
-                if { !$append_p || ![info exists columns] } {
-                    # store the list of columns in the var_name:columns variable
-                    set columns $local_columns
-                } else {
-                    # Check that the columns match, if not throw an error
-                    if { ![string equal [join [lsort -ascii $local_columns]] [join [lsort -ascii $columns]]] } {
-                        error "Appending to a multirow with differing columns.
-Original columns     : [join [lsort -ascii $columns] ", "].
-Columns in this query: [join [lsort -ascii $local_columns] ", "]" "" "ACS_MULTIROW_APPEND_COLUMNS_MISMATCH"
-                    }
-                }
-
-                # Save values of columns which we might clobber
-                if { $unclobber_p && ![empty_string_p $code_block] } {
-                    foreach col $columns {
-                        upvar 1 $col column_value __saved_$col column_save
-
-                        if { [info exists column_value] } {
-                            if { [array exists column_value] } {
-                                array set column_save [array get column_value]
-                            } else {
-                                set column_save $column_value
-                            }
-
-                            # Clear the variable
-                            unset column_value
-                        }
-                    }
-                }
-            }
-
-            if { [empty_string_p $code_block] } {
-                # No code block - pull values directly into the var_name array.
-
-                # The extra loop after the last row is only for when there's a code block
-                if { !$more_rows_p } {
-                    break
-                }
-                incr counter
-                upvar $level_up "$var_name:$counter" array_val
-                set array_val(rownum) $counter
-                for { set i 0 } { $i < [ns_set size $selection] } { incr i } {
-                    set array_val([ns_set key $selection $i]) \
-                        [ns_set value $selection $i]
-                }
-            } else {
-                # There is a code block to execute
-
-                # Copy next_row to this_row, if it exists
-                if { [info exists this_row] } {
-                    unset this_row 
-                }
-                set array_get_next_row [array get next_row]
-                if { ![empty_string_p $array_get_next_row] } {
-                    array set this_row [array get next_row]
-                }
-
-                # Pull values from the query into next_row
-                if { [info exists next_row] } {
-                    unset next_row 
-                }
-                if { $more_rows_p } {
-                    for { set i 0 } { $i < [ns_set size $selection] } { incr i } {
-                        set next_row([ns_set key $selection $i]) [ns_set value $selection $i]
-                    }   
-                }
-
-                # Process the row
-                if { [info exists this_row] } {
-                    # Pull values from this_row into local variables
-                    foreach name [array names this_row] {
-                        upvar 1 $name column_value
-                        set column_value $this_row($name)
-                    }
-
-                    # Initialize the "extend" columns to the empty string
-                    foreach column_name $extend {
-                        upvar 1 $column_name column_value
-                        set column_value ""
-                    }
-
-                    # Execute the code block
-                    set errno [catch { uplevel 1 $code_block } error]
-
-                    # Handle or propagate the error. Can't use the usual
-                    # "return -code $errno..." trick due to the db_with_handle
-                    # wrapped around this loop, so propagate it explicitly.
-                    switch $errno {
-                        0 {
-                            # TCL_OK
-                        }
-                        1 {
-                            # TCL_ERROR
-                            global errorInfo errorCode
-                            error $error $errorInfo $errorCode
-                        }
-                        2 {
-                            # TCL_RETURN
-                            error "Cannot return from inside a db_multirow loop"
-                        }
-                        3 {
-                            # TCL_BREAK
-                            ns_db flush $db
-                            break
-                        }
-                        4 {
-                            # TCL_CONTINUE
-                            continue
-                        }
-                        default {
-                            error "Unknown return code: $errno"
-                        }
-                    }
-                 
-                    # Pull the local variables back out and into the array.
-                    incr counter
-                    upvar $level_up "$var_name:$counter" array_val
-                    set array_val(rownum) $counter
-                    foreach column_name $columns {
-                        upvar 1 $column_name column_value
-                        set array_val($column_name) $column_value
-                    }
-                }
-            }
-            incr local_counter
-        }
+    } else {
+        db_multirow_helper
     }
 
-    # Restore values of columns which we've saved
-    if { $unclobber_p && ![empty_string_p $code_block] && $local_counter > 0 } {
-        foreach col $columns {
-            upvar 1 $col column_value __saved_$col column_save
-
-            # Unset it first, so the road's paved to restoring
-            if { [info exists column_value] } {
-                unset column_value
-            }
-
-            # Restore it
-            if { [info exists column_save] } {
-                if { [array exists column_save] } {
-                    array set column_value [array get column_save]
-                } else {
-                    set column_value $column_save
-                }
-                
-                # And then remove the saved col
-                unset column_save
-            }
-        }
-    }
-    # Unset the next_row variable, just in case
-    if { [info exists next_row] } {
-        unset next_row
-     }
 
     # If the if_no_rows_code is defined, go ahead and run it.
     if { $counter == 0 && [info exists if_no_rows_code_block] } {
@@ -1572,7 +1738,7 @@ ad_proc -public db_multirow_group_last_row_p {
 } {
     Used inside the code_block to db_multirow to ask whether this row is the last row 
     before the value of 'column' changes, or the last row of the result set.
-    
+
     <p>
 
     This is useful when you want to build up a multirow for a master/slave table pair, 
@@ -1616,7 +1782,7 @@ ad_proc -public db_multirow_group_last_row_p {
 </pre>
 
     @author Lars Pind (lars@collaboraid.biz)
-    
+
     @param column The name of the column defining the groups.
 
     @return 1 if this is the last row before the column value changes, 0 otherwise.
@@ -1772,7 +1938,14 @@ ad_proc -public db_resultrows {{ -dbn "" }} {
 }
 
 
-ad_proc -public db_0or1row {{ -dbn "" } statement_name sql args } { 
+ad_proc -public db_0or1row {
+    {-dbn ""}
+    -cache_key
+    {-cache_pool db_cache_pool}
+    statement_name
+    sql
+    args
+} { 
 
     Usage: 
     <blockquote>
@@ -1789,6 +1962,8 @@ ad_proc -public db_0or1row {{ -dbn "" } statement_name sql args } {
     @return 1 if variables are set, 0 if no rows are returned.  If more than one row is returned, throws an error.
 
     @param dbn The database name to use.  If empty_string, uses the default database.
+    @param cache_key Cache the result using given value as the key.  Default is to not cache.
+    @param cache_pool Override the default db_cache_pool
 } {
     ad_arg_parser { bind column_array column_set } $args
 
@@ -1810,11 +1985,39 @@ ad_proc -public db_0or1row {{ -dbn "" } statement_name sql args } {
         upvar 1 $column_set selection
     }
 
-    db_with_handle -dbn $dbn db {
-        set selection [db_exec 0or1row $db $full_statement_name $sql]
+    if { [info exists cache_key] } { 
+        set values [ns_cache eval $cache_pool $cache_key {
+            db_with_handle -dbn $dbn db {
+                set selection [db_exec 0or1row $db $full_statement_name $sql]
+            }
+
+            set values [list]
+
+            if { $selection ne "" } {
+                for {set i 0} { $i < [ns_set size $selection] } {incr i} {
+                    lappend values [list [ns_set key $selection $i] [ns_set value $selection $i]]
+                }
+            }
+
+            set values
+        }]
+
+        if { $values eq "" } {
+            set selection ""
+        } else { 
+            set selection [ns_set create]
+
+            foreach value $values {
+                ns_set put $selection [lindex $value 0] [lindex $value 1]
+            }
+        }
+    } else {
+        db_with_handle -dbn $dbn db {
+            set selection [db_exec 0or1row $db $full_statement_name $sql]
+        }
     }
-    
-    if { [empty_string_p $selection] } {
+
+    if { $selection eq "" } {
         return 0
     }
 
@@ -1848,6 +2051,9 @@ ad_proc -public db_1row { args } {
 
     @return 1 if variables are set.
     @param dbn The database name to use.  If empty_string, uses the default database.
+    @param cache_key Cache the result using given value as the key.  Default is to not cache.
+    @param cache_pool Override the default db_cache_pool
+
 } {
     if { ![uplevel db_0or1row $args] } {
         return -code error "Query did not return any rows."
@@ -1857,7 +2063,7 @@ ad_proc -public db_1row { args } {
 
 ad_proc -public db_transaction {{ -dbn ""} transaction_code args } {
     Usage: <b><i>db_transaction</i></b> <i>transaction_code</i> [ on_error { <i>error_code_block</i> } ]
-    
+
     Executes transaction_code with transactional semantics.  This means that either all of the database commands
     within transaction_code are committed to the database or none of them are.  Multiple <code>db_transaction</code>s may be
     nested (end transaction is transparently ns_db dml'ed when the outermost transaction completes).<p>
@@ -1893,10 +2099,10 @@ ad_proc -public db_transaction {{ -dbn ""} transaction_code args } {
     @param dbn The database name to use.  If empty_string, uses the default database.
 } {
     upvar "#0" [db_state_array_name_is -dbn $dbn] db_state
-    
+
     set syn_err "db_transaction: Invalid arguments. Use db_transaction { code } \[on_error { error_code_block }\] "
     set arg_c [llength $args]
-    
+
     if { $arg_c != 0 && $arg_c != 2 } {
         # Either this is a transaction with no error handling or there must be an on_error { code } block.
         error $syn_err
@@ -1912,7 +2118,7 @@ ad_proc -public db_transaction {{ -dbn ""} transaction_code args } {
     }
     # Make the error message and database handle available to the on_error block.
     upvar errmsg errmsg
-    
+
     db_with_handle -dbn $dbn db {
         # Preserve the handle, since db_with_handle kills it after executing
         # this block.
@@ -1931,7 +2137,7 @@ ad_proc -public db_transaction {{ -dbn ""} transaction_code args } {
         uplevel 1 $transaction_code 
     } errmsg]
     incr db_state(transaction_level,$dbh) -1
-    
+
     set err_p 0
     switch $errno {
         0 {
@@ -2080,7 +2286,7 @@ ad_proc -public db_transaction {{ -dbn ""} transaction_code args } {
 
 
 ad_proc -public db_abort_transaction {{ -dbn "" }} {
-    
+
     Aborts all levels of a transaction. That is if this is called within 
     several nested transactions, all of them are terminated. Use this 
     instead of db_dml "abort" "abort transaction".
@@ -2125,7 +2331,7 @@ ad_proc -public db_name {{ -dbn "" }} {
 }
 
 
-ad_proc db_get_username {{ -dbn "" }} {
+ad_proc -public db_get_username {{ -dbn "" }} {
     @return the username parameter from the driver section of the
     first database pool for the dbn.
 
@@ -2135,7 +2341,7 @@ ad_proc db_get_username {{ -dbn "" }} {
     return [ns_config "ns/db/pool/$pool" User]    
 }
 
-ad_proc db_get_password {{ -dbn "" }} {
+ad_proc -public db_get_password {{ -dbn "" }} {
     @return the password parameter from the driver section of the
     first database pool for the dbn.
 
@@ -2145,7 +2351,7 @@ ad_proc db_get_password {{ -dbn "" }} {
     return [ns_config "ns/db/pool/$pool" Password]
 }
 
-ad_proc db_get_sql_user {{ -dbn "" }} {
+ad_proc -public db_get_sql_user {{ -dbn "" }} {
     <strong>Oracle only.</strong>
 
     <p>
@@ -2167,7 +2373,7 @@ ad_proc db_get_sql_user {{ -dbn "" }} {
     }
 }
 
-ad_proc db_get_pgbin {{ -dbn "" }} {
+ad_proc -public db_get_pgbin {{ -dbn "" }} {
     <strong>PostgreSQL only.</strong>
 
     <p>
@@ -2181,7 +2387,7 @@ ad_proc db_get_pgbin {{ -dbn "" }} {
 }
 
 
-ad_proc db_get_port {{ -dbn "" }} {
+ad_proc -public db_get_port {{ -dbn "" }} {
     <strong>PostgreSQL only.</strong>
 
     <p>
@@ -2210,7 +2416,7 @@ ad_proc db_get_port {{ -dbn "" }} {
 }
 
 
-ad_proc db_get_database {{ -dbn "" }} {
+ad_proc -public db_get_database {{ -dbn "" }} {
     <strong>PostgreSQL only.</strong>
 
     <p>
@@ -2231,7 +2437,7 @@ ad_proc db_get_database {{ -dbn "" }} {
 }
 
  
-ad_proc db_get_dbhost {{ -dbn "" }} {
+ad_proc -public db_get_dbhost {{ -dbn "" }} {
     <strong>PostgreSQL only.</strong>
 
     <p>
@@ -2251,7 +2457,7 @@ ad_proc db_get_dbhost {{ -dbn "" }} {
     return [string range $datasource 0 [expr $first_colon_pos - 1]]
 }
 
-ad_proc db_source_sql_file {{
+ad_proc -public db_source_sql_file {{
     -dbn ""
     -callback apm_ns_write_callback
 } file } {
@@ -2314,7 +2520,7 @@ ad_proc db_source_sql_file {{
             cd [file dirname $file]
             ns_log notice "\n DAVEB pghost = '${pghost}' pgport = '${pgport}' pguser = '${pguser}' \n"
             if { $tcl_platform(platform) == "windows" } {
-                set fp [open "|[file join [db_get_pgbin] psql] $pghost $pgport $pguser -f $file_name [db_get_database]" "r"]
+                set fp [open "|[file join [db_get_pgbin] psql] $pghost $pgport $pguser -f $file_name [db_get_database] $pgpass" "r"]
             } else {
                 set fp [open "|[file join [db_get_pgbin] psql] $pghost $pgport $pguser -f $file_name [db_get_database] $pgpass" "r"]
             }
@@ -2366,7 +2572,7 @@ ad_proc db_source_sql_file {{
     }
 }
 
-ad_proc db_load_sql_data {{
+ad_proc -public db_load_sql_data {{
     -dbn ""
     -callback apm_ns_write_callback
 } file } {
@@ -2504,7 +2710,7 @@ ad_proc db_load_sql_data {{
     }
 }
 
-ad_proc db_source_sqlj_file {{
+ad_proc -public db_source_sqlj_file {{
     -dbn ""
     -callback apm_ns_write_callback
 } file } {
@@ -2540,7 +2746,7 @@ ad_proc -public db_tables {
     {-dbn ""}
 } {
     @return a Tcl list of all the tables owned by the connected user.
-    
+
     @param pattern Will be used as LIKE 'pattern%' to limit the number of tables returned.
 
     @param dbn The database name to use.  If empty_string, uses the default database.
@@ -2668,7 +2874,7 @@ ad_proc -public db_column_exists {{ -dbn "" } table_name column_name } {
     @return 1 if the row exists in the table, 0 if not.
 
     @param dbn The database name to use.  If empty_string, uses the default database.
-    
+
     @author Lars Pind (lars@pinds.com)
 } {
     set columns [list]
@@ -2822,7 +3028,7 @@ ad_proc -public db_blob_get_file {{ -dbn "" } statement_name sql args } {
 }
 
 
-ad_proc db_blob_get {{ -dbn "" } statement_name sql args } {
+ad_proc -public db_blob_get {{ -dbn "" } statement_name sql args } {
     <strong>PostgreSQL only.</strong>
 
     @param dbn The database name to use.  If empty_string, uses the default database.
@@ -3013,7 +3219,7 @@ ad_proc -private db_exec_lob_oracle {{
 
     } error]
 
-    ad_call_proc_if_exists ds_collect_db_call $db $type $statement_name $sql $start_time $errno $error
+    ds_collect_db_call $db $type $statement_name $sql $start_time $errno $error
     if { $errno == 2 } {
 	return $error
     }
@@ -3224,11 +3430,40 @@ ad_proc -private db_exec_lob_postgresql {{
     set errinfo $errorInfo
     set errcode $errorCode
 
-    ad_call_proc_if_exists ds_collect_db_call $db 0or1row $statement_name $sql $start_time $errno $error
+    ds_collect_db_call $db 0or1row $statement_name $sql $start_time $errno $error
 
     if { $errno == 2 } {
 	return $error
     }
 
     return -code $errno -errorinfo $errinfo -errorcode $errcode $error
+}
+
+ad_proc -public db_flush_cache {
+    {-cache_key_pattern *}
+    {-cache_pool db_cache_pool}
+} {
+
+    Flush the given cache of entries with keys that match the given pattern.
+
+    @param cache_key_pattern The "string match" pattern used to flush keys (default is
+           to flush all entries)
+    @param cache_pool The pool to flush (default is to flush db_cache_pool)
+    @author Don Baccus (dhogasa@pacifier.com)
+
+} {
+    foreach key [ns_cache names $cache_pool] {
+        if { [string match $cache_key_pattern $key] } {
+            ns_cache flush $cache_pool $key
+        }
+    }
+}
+
+ad_proc -public db_bounce_pools {{ -dbn "" }} { 
+    @return Call ns_db bouncepool on all pools for the named database.
+    @param dbn The database name to use.  Uses the default database if not supplied.
+} {
+    foreach pool [db_available_pools $dbn] {
+        ns_db bouncepool $pool
+    }
 }

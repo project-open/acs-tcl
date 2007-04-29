@@ -42,7 +42,7 @@ ad_proc -private sec_random_token {} {
 	set start_clicks [ad_conn start_clicks]
     } else {
 	set request "yoursponsoredadvertisementhere"
-	set start_clicks "developer.arsdigita.com"
+	set start_clicks "cvs.openacs.org"
     }
     
     if { ![info exists tcl_sec_seed] } {
@@ -339,10 +339,6 @@ ad_proc -public ad_change_password {
         error "No user_id supplied"
     } 
     
-    if {[util_memoize "db_column_exists users cleartext_password"]} {
-	db_dml cleartext_pwd "update users set cleartext_password = :new_password where user_id = :user_id"
-    }
-
     set salt [sec_random_token]
     set new_password [ns_sha1 "$new_password$salt"]
     db_dml password_update {}
@@ -474,14 +470,13 @@ ad_proc -private sec_generate_secure_token_cookie { } {
     ad_set_signed_cookie -secure t "ad_secure_token" "[ad_conn session_id],[ad_conn user_id],[ns_time]"
 }
 
-ad_proc -public -deprecated ad_secure_conn_p {} { 
+ad_proc -public -deprecated -warn ad_secure_conn_p {} { 
     Use security::secure_conn_p instead.
     
     @see security::secure_conn_p
 } {
     return [security::secure_conn_p]
 }
-
 
 ad_proc -private sec_allocate_session {} {
 
@@ -807,7 +802,7 @@ ad_proc -private __ad_verify_signature {
 	set hash_ok_p 1
     } else {
 	# check to see if IE is lame (and buggy!) and is expanding \n to \r\n
-	# See: http://www.arsdigita.com/bboard/q-and-a-fetch-msg?msg_id=000bfF
+	# See: http://rhea.redhat.com/bboard-archive/webdb/000bfF.html
 	set value [string map [list \r ""] $value]
 	set org_computed_hash $computed_hash
 	set computed_hash [ns_sha1 "$value$token_id$expire_time$secret_token"]
@@ -1000,9 +995,8 @@ ad_proc -private sec_get_token {
 	    set token [db_string get_token {select token from secret_tokens
                        	                 where token_id = :token_id} -default 0]
 	    db_release_unused_handles
-	    
+
 	    # Very important to throw the error here if $token == 0
-	    # see: http://www.arsdigita.com/sdm/one-ticket?ticket_id=10760
 
             if { $token == 0 } {
 	        error "Invalid token ID"
@@ -1146,6 +1140,12 @@ ad_proc -public ad_get_client_property {
 } {
     if { [empty_string_p $session_id] } {
         set id [ad_conn session_id]
+        
+        # if session_id is still undefined in the connection then we 
+        # should just return the default
+        if { [empty_string_p $id] } {
+            return $default
+        }
     } else {
         set id $session_id
     }
@@ -1264,7 +1264,7 @@ ad_proc -public -deprecated ad_get_user_id {} {
     return [ad_conn user_id]
 }
 
-ad_proc -public -deprecated ad_verify_and_get_user_id { 
+ad_proc -public -deprecated -warn ad_verify_and_get_user_id { 
     {-secure f}
 } {
     Returns the current user's ID. 0 indicates user is not logged in
@@ -1276,20 +1276,6 @@ ad_proc -public -deprecated ad_verify_and_get_user_id {
     return [ad_conn user_id]
 }
 
-ad_proc -public -deprecated ad_verify_and_get_session_id { 
-    {-secure f} 
-} {
-    Returns the current session's ID.
-
-    Deprecated since session_id now provided via ad_conn session_id
-
-    @param secure is ignored
-
-    @see ad_conn
-} {
-    return [ad_conn session_id]
-}
-
 # handling privacy
 
 ad_proc -public -deprecated ad_privacy_threshold {} {
@@ -1298,6 +1284,8 @@ ad_proc -public -deprecated ad_privacy_threshold {} {
     database is less than or equal to what ad_privacy_threshold returns.
     
     Now deprecated.
+
+    @see  ad_conn
 } {
     set session_user_id [ad_get_user_id]
     if {$session_user_id == 0} {
@@ -1503,8 +1491,8 @@ ad_proc -private security::get_secure_location {} {
         set secure_location $current_location
     } else {
         # Current location is insecure - get location from config file
-        set secure_location [ad_conn location]
-        # Prefix with https
+	set secure_location [ad_conn location]
+	# Prefix with https
         regsub {^(?:http://)?} $secure_location {https://} secure_location
 
 	# remove port number if using nonstandard port
