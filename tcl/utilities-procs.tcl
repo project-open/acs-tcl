@@ -2775,6 +2775,8 @@ ad_proc -public util_current_location {{}} {
         }
     }
 
+    ns_log Notice "util_current_location: Host=$Host, port=$port"
+
     # HTTP port - straight return
     if { ![empty_string_p $port] && [string equal $port 80]} {
         return "$proto://$hostname"
@@ -2787,7 +2789,8 @@ ad_proc -public util_current_location {{}} {
     }
 
     if { ![empty_string_p $port]} {
-        return "$proto://$hostname:$port"
+#	ns_log Notice "util_current_location: returning 1: Host=$Host, port=$port"
+        return "$proto://$hostname"
     } else {
         return "$proto://$hostname"
     }
