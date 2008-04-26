@@ -2271,10 +2271,12 @@ ad_proc db_source_sql_file {{
             cd [file dirname $file]
             set fp [open "|[file join $env(ORACLE_HOME) bin sqlplus] $user_pass @$file" "r"]
 
+	    catch {db_string log "SELECT acs_log__debug(:file, 'db_source_sql_file: Executing file')"} err_msg
             while { [gets $fp line] >= 0 } {
                 # Don't bother writing out lines which are purely whitespace.
                 if { ![string is space $line] } {
                     apm_callback_and_log $callback "[ad_quotehtml $line]\n"
+		    catch {db_string log "SELECT acs_log__debug(:file, coalesce(:line, ''))"} err_msg
                 }
             }
             close $fp
@@ -2319,10 +2321,13 @@ ad_proc db_source_sql_file {{
                 set fp [open "|[file join [db_get_pgbin] psql] $pghost $pgport $pguser -f $file_name [db_get_database] $pgpass" "r"]
             }
 
+	    # Create a log about upgrade files executed and their errors.
+	    catch {db_string log "SELECT acs_log__debug(:file, 'db_source_sql_file: Executing file')"} err_msg
             while { [gets $fp line] >= 0 } {
                 # Don't bother writing out lines which are purely whitespace.
                 if { ![string is space $line] } {
                     apm_callback_and_log $callback "[ad_quotehtml $line]\n"
+		    catch {db_string log "SELECT acs_log__debug(:file, coalesce(:line, ''))"} err_msg
                 }
             }
 
