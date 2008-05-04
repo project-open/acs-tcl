@@ -2733,65 +2733,78 @@ ad_proc -public util_current_location {{}} {
     switch [ad_conn driver] {
         nssock {
             set proto http
-            set port [ns_config -int "ns/server/[ns_info server]/module/nssock" Port]
+            set aolserver_port [ns_config -int "ns/server/[ns_info server]/module/nssock" Port]
         }
         nsunix {
             set proto http
-            set port {}
+            set aolserver_port {}
         }
         nsssl - nsssle {
-            set port [ns_config -int "ns/server/[ns_info server]/module/[ad_conn driver]" Port]
+            set aolserver_port [ns_config -int "ns/server/[ns_info server]/module/[ad_conn driver]" Port]
             set proto https
         }
         nsopenssl {
-            set port [ns_config -int "ns/server/[ns_info server]/module/[ad_conn driver]" ServerPort]
+            set aolserver_port [ns_config -int "ns/server/[ns_info server]/module/[ad_conn driver]" ServerPort]
             set proto https
         }
         default {
             ns_log Error "Unknown driver: [ad_conn driver]. Only know nssock, nsunix, nsssl, nsssle, nsopenssl"
-            set port [ns_config -int "ns/server/[ns_info server]/module/nssock" Port]
+            set aolserver_port [ns_config -int "ns/server/[ns_info server]/module/nssock" Port]
             set proto http
         }
     }
 
     # This is the host from the browser's HTTP request
-    set Host [ns_set iget [ad_conn headers] Host]
-    set Hostv [split $Host ":"]
-    set Host_hostname [lindex $Hostv 0]
-    set Host_port [lindex $Hostv 1]
+    set url_host [ns_set iget [ad_conn headers] Host]
+    set url_hostv [split $url_host ":"]
+    set url_hostname [lindex $url_hostv 0]
+    set url_port [lindex $url_hostv 1]
     
     # Server config location
     if { ![regexp {^([a-z]+://)?([^:]+)(:[0-9]*)?$} [ad_conn location] match location_proto location_hostname location_port] } {
         ns_log Error "util_current_location couldn't regexp '[ad_conn location]'"
     }
 
-    if { [empty_string_p $Host] } {
+    if { [empty_string_p $url_host] } {
         # No Host header, return protocol from driver, hostname from [ad_conn location], and port from driver
         set hostname $location_hostname
     } else {
-        set hostname $Host_hostname
-        if { ![empty_string_p $Host_port] } {
-            set port $Host_port
-        }
+        set hostname $url_hostname
     }
 
-    ns_log Notice "util_current_location: Host=$Host, port=$port"
 
-    # HTTP port - straight return
-    if { ![empty_string_p $port] && [string equal $port 80]} {
+    # Which of the ports should we take?
+    set acs_kernel_id [util_memoize ad_acs_kernel_id]
+    set port_type [ad_parameter -package_id $acs_kernel_id ForcePortType request-processor url_port]
+
+    switch $port_type {
+	url_port { set port $url_port }
+	virtual_server_port { set port $location_port }
+	aolserver_port { set port $aolserver_port }
+	default { set port $url_port }
+    }
+
+    ns_log Notice "util_current_location: port_type=$port_type, proto=$proto, host=url_host, aolserver_port=$aolserver_port, url_port=$url_port, location_port=$location_port"
+
+
+
+    # Request on port 80 (HTTP) - skip the port number
+    if {[string equal $port 80]} {
+	ns_log Notice "util_current_location: HTTP on 80: $proto://$hostname"
         return "$proto://$hostname"
     }
 
-    # HTTPS port - replace the proto
-    # HTTPS will only be possible on port 443 though...
-    if { ![empty_string_p $port] && [string equal $port 443]} {
+    # Request on port 443 (HTTPS) -  will only be possible on port 443 though...
+    if {[string equal $port 443]} {
+	ns_log Notice "util_current_location: HTTPS: $proto://$hostname"
         return "https://$hostname"
     }
 
     if { ![empty_string_p $port]} {
-#	ns_log Notice "util_current_location: returning 1: Host=$Host, port=$port"
-        return "$proto://$hostname"
+	ns_log Notice "util_current_location: Non-Empty Port: $proto://$hostname"
+        return "$proto://$hostname:$port"
     } else {
+	ns_log Notice "util_current_location: Empty Port: $proto://$hostname"
         return "$proto://$hostname"
     }
 }
