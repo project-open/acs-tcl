@@ -2583,6 +2583,7 @@ ad_proc -public ad_cache_returnredirect { url { persistent "f" } { excluded_vars
 ad_proc -public ad_returnredirect {
     {-message {}}
     {-html:boolean}
+    {-allow_complete_url:boolean}
     target_url
 } {
     Write the HTTP response required to get the browser to redirect to a different page, 
@@ -2613,6 +2614,12 @@ ad_proc -public ad_returnredirect {
 } {
     if { [util_complete_url_p $target_url] } {
         # http://myserver.com/foo/bar.tcl style - just pass to ns_returnredirect
+
+	# check if the hostname matches the current host
+        if {[util::external_url_p $target_url] && !$allow_complete_url_p} {
+            error "Redirection to external hosts is not allowed."
+        }
+
         set url $target_url
     } elseif { [util_absolute_path_p $target_url] } {
         # /foo/bar.tcl style - prepend the current location:
@@ -4971,3 +4978,27 @@ ad_proc -public util::roll_server_log {{}} {
     ns_log Notice "util::roll_server_log: Done rolling the server log." 
     return 0
 } 
+
+
+
+ad_proc util::external_url_p { url } {
+    check if this URL is external to the current host or a valid alternative
+    valid alternatives include
+    HTTPS or HTTP protocol change
+    HTTP or HTTPS port number added or removed from current host name
+   or another hostname that the host responds to (from host_node_map)
+} {
+    set locations_list [security::locations]
+    # there may be as many as 3 valid full urls from one hostname
+    set external_url_p [util_complete_url_p $url]
+
+    # more valid url pairs with host_node_map
+    foreach location $locations_list {
+        set encoded_location [ns_urlencode $location]
+	#       ns_log Notice "util::external_url_p location \"$location/*\" url $url match [string match "${encod\
+	    ed_location}/*" $url]"
+    set external_url_p [expr { $external_url_p && ![string match "$location/*" $url] } ]
+    set external_url_p [expr { $external_url_p && ![string match "${encoded_location}/*" $url] } ]
+}
+    return $external_url_p
+}
