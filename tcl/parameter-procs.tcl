@@ -204,6 +204,8 @@ ad_proc -public parameter::get {
         }
     }
 
+    # Fraber 121008: Add custom debugging comment
+    catch { im_ds_comment_parameter -package_id $package_id -parameter $parameter -result $value }
     return $value
 }
 
