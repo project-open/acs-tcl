@@ -122,7 +122,7 @@
                  creation_ip
           from   cc_users 
           where  authority_id = :authority_id
-          and    lower(username) = lower(:username)
+          and    (lower(username) = lower(:username) OR lower(email) = lower(:username))
 
       </querytext>
 </fullquery>

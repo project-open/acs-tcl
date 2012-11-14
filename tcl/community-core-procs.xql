@@ -118,10 +118,12 @@
 <fullquery name="acs_user::get_by_username_not_cached.user_id_from_username">      
       <querytext>
 
-            select user_id
-            from   users
-            where  lower(username) = lower(:username)
-            and    authority_id =:authority_id
+	select	min(user_id)
+	from	users,
+		parties
+	where	user_id = party_id and
+		(lower(username) = lower(:username) OR lower(email) = lower(:username)) and
+		authority_id =:authority_id
 
       </querytext>
 </fullquery>
