@@ -2577,6 +2577,9 @@ ad_proc -public db_source_sql_file {{
 
             cd [file dirname $file]
             if { $tcl_platform(platform) eq "windows" } {
+		# On Windows force to use the specified host, because a Unix socket connection doesn't work
+		# ToDo: Make sure there are no other db_get_pgbin calls without -h for Windows
+		set pghost "-h [db_get_dbhost]"
                 set fp [open "|[file join [db_get_pgbin] psql] $pghost $pgport $pguser -f $file_name [db_get_database] $pgpass" "r"]
             } else {
                 set fp [open "|[file join [db_get_pgbin] psql] $pghost $pgport $pguser -f $file_name [db_get_database] $pgpass" "r"]
