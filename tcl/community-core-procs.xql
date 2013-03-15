@@ -4,7 +4,7 @@
 <fullquery name="cc_lookup_screen_name_user.user_select">      
       <querytext>
       
-	select user_id from acs_users_all where lower(screen_name) = lower(:screen_name)
+	select min(user_id) from acs_users_all where lower(screen_name) = lower(:screen_name)
     
       </querytext>
 </fullquery>
@@ -12,7 +12,7 @@
 <fullquery name="cc_lookup_email_user.user_select">      
       <querytext>
       
-	select user_id from acs_users_all where lower(email) = lower(:email)
+	select min(user_id) from acs_users_all where lower(email) = lower(:email)
     
       </querytext>
 </fullquery>
@@ -30,7 +30,7 @@
 <fullquery name="cc_lookup_name_group.group_select">      
       <querytext>
       
-	select group_id from groups where group_name = :name
+	select min(group_id) from groups where group_name = :name
     
       </querytext>
 </fullquery>
@@ -173,7 +173,7 @@
 <fullquery name="acs_user::get_user_id_by_screen_name.select_user_id_by_screen_name">
       <querytext>
 
-	select user_id from users where lower(screen_name) = lower(:screen_name)
+	select min(user_id) from users where lower(screen_name) = lower(:screen_name)
 
       </querytext>
 </fullquery>
