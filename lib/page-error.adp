@@ -50,6 +50,11 @@ I agree with the <a href="http://www.project-open.com/en/company/project-open-pr
 <input type=hidden name=publisher_name value="@publisher_name;noquote@">
 <input type=hidden name=system_id value=@system_id@>
 <input type=hidden name=hardware_id value=@hardware_id@>
+<input type=hidden name=platform value="<%=$::tcl_platform(platform)%>">
+<input type=hidden name=os value="<%=$::tcl_platform(os)%>">
+<input type=hidden name=os_version value="<%=$::tcl_platform(osVersion)%>">
+
+
 <if @message@ not nil>
   <input type=hidden name=error_message value="@message;noquote@">
 </if>
