@@ -383,6 +383,7 @@ ad_proc -public ad_return_string_as_file {
 ad_proc -public ad_return_complaint {
     exception_count 
     exception_text
+    {show_master_p 1}
 } {
     Return a page complaining about the user's input 
     (as opposed to an error in our software, for which ad_return_error 
@@ -392,12 +393,15 @@ ad_proc -public ad_return_complaint {
 
     @param exception_text HTML chunk to go inside an UL tag with the error messages.
 } {
-    set complaint_template [parameter::get_from_package_key -package_key "acs-tcl" -parameter "ReturnComplaint" -default "/packages/acs-tcl/lib/ad-return-complaint"]
-    ns_return 200 text/html [ad_parse_template \
+    if { $show_master_p } {
+	set complaint_template [parameter::get_from_package_key -package_key "acs-tcl" -parameter "ReturnComplaint" -default "/packages/acs-tcl/lib/ad-return-complaint"]
+	ns_return 200 text/html [ad_parse_template \
                                  -params [list [list exception_count $exception_count] \
                                               [list exception_text $exception_text]] \
 				 $complaint_template]
-				 
+    } else {
+	ns_return 200 text/html "$exception_text<br/><br/><button onclick='javascript:window.history.back();'>[lang::message::lookup "" acs-tcl.GoBack "Go back"]</button>"
+    }
     
     # raise abortion flag, e.g., for templating
     global request_aborted
