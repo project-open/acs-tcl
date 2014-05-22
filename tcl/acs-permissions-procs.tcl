@@ -56,35 +56,23 @@ ad_proc -public permission::permission_p {
     {-object_id:required}
     {-privilege:required}
 } {
-    does party X have privilege Y on object Z
-    
+    Does party X have privilege Y on object Z
     @param no_cache force loading from db even if cached (flushes cache as well)
-    
     @param no_login Don't bump to registration to refresh authentication, if the user's authentication is expired.
                     This is specifically required in the case where you're calling this from the proc that gets
                     the login page.
-    
     @param party_id if null then it is the current user_id
-
     @param object_id The object you want to check permissions on.
-    
     @param privilege The privilege you want to check for.
 } {
-    if { $party_id eq "" } {
-        set party_id [ad_conn user_id]
-    }    
-
-    if { $no_cache_p } {
-        permission::permission_thread_cache_flush
-    }
-
+    if { $party_id eq "" } { set party_id [ad_conn user_id]}    
+    if { $no_cache_p } { permission::permission_thread_cache_flush }
     if { $no_cache_p || ![permission::cache_p] } {
         util_memoize_flush [list permission::permission_p_not_cached -party_id $party_id -object_id $object_id -privilege $privilege]
         set permission_p [permission::permission_p_not_cached -party_id $party_id -object_id $object_id -privilege $privilege]
     } else { 
-        set permission_p [util_memoize \
-                              [list permission::permission_p_not_cached -party_id $party_id -object_id $object_id -privilege $privilege] \
-                              [parameter::get -package_id [ad_acs_kernel_id] -parameter PermissionCacheTimeout -default 300]]
+	set timeout [parameter::get -package_id [ad_acs_kernel_id] -parameter PermissionCacheTimeout -default 300]
+        set permission_p [util_memoize [list permission::permission_p_not_cached -party_id $party_id -object_id $object_id -privilege $privilege] $timeout]
     }
 
     if { 
