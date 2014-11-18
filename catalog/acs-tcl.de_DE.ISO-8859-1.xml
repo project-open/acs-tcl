@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <message_catalog package_key="acs-tcl" locale="de_DE" charset="ISO-8859-1">
 
-  <msg key="a_problem">ein Problem</msg>
+  <msg key="a_problem">Ein Problem</msg>
   <msg key="approve">Freischalten</msg>
   <msg key="approve_email">E-Mail-Adresse bestätigen</msg>
   <msg key="ban">Deaktivieren</msg>
@@ -91,7 +91,7 @@
   <msg key="some_problems">einige Probleme</msg>
   <msg key="Sorry">Entschuldigen Sie bitte!</msg>
   <msg key="Success_error_submitted">Der Fehler wurde an die Entwickler berichtet</msg>
-  <msg key="Thank_you">Vielen Dank.</msg>
+  <msg key="Thank_you">Danke!</msg>
   <msg key="The">Der Fehler war der folgende:</msg>
   <msg key="There">Es gab einen Server Error während Ihre Anfrage bearbeitet wurde. Wir entschuldigen uns!</msg>
   <msg key="There_1">Es gab einen Server Error</msg>
@@ -100,6 +100,6 @@
   <msg key="User_comments">Kommentare des Users:</msg>
   <msg key="User_Name">User Name:</msg>
   <msg key="We">Wir würden es begrüßen, wenn sie einige Details dessen,m was Sie gerade zu tun versuchten, spezifizieren könnten.</msg>
-  <msg key="We_had">Wir haben</msg>
-  <msg key="with_your_input">mit Ihrer Eingabe:</msg>
+  <msg key="We_had">Wir hatten</msg>
+  <msg key="with_your_input">mit ihrer Eingabe:</msg>
 </message_catalog>
