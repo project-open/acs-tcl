@@ -8,16 +8,16 @@ ad_library {
     every request.
 
     @author Jeff Davis <davis@xarg.net>
-    @creationd-date 2005-03-02
+    @creation-date 2005-03-02
     @cvs-id $Id$
 }
 
-if {{} eq [info procs ds_add]} {
+if {[info commands ds_add] eq ""} {
     proc ds_add {args} {}
 }
-if {{} eq [info procs ds_collect_db_call]} {
+if {[info commands ds_collect_db_call] eq ""} {
     proc ds_collect_db_call {args} {}
 }
-if {{} eq [info procs ds_collect_connection_info]} {
+if {[info commands ds_collect_connection_info] eq ""} {
     proc ds_collect_connection_info {} {}
 }

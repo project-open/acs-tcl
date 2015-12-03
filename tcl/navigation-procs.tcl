@@ -39,10 +39,10 @@ ad_proc -public ad_context_bar_html {
     }
 
     set out {}
-    foreach element [lrange $context 0 [expr {[llength $context] - 2}]] { 
-        append out "<a href=\"[lindex $element 0]\">[lindex $element 1]</a> $separator "
+    foreach element [lrange $context 0 [llength $context]-2] { 
+        append out [subst {<a href="[ns_quotehtml [lindex $element 0]]">[ns_quotehtml [lindex $element 1]]</a> $separator }]
     }
-    append out [lindex $context end]
+    append out [ns_quotehtml [lindex $context end]]
 
     return $out
 }
@@ -106,7 +106,7 @@ ad_proc -public ad_context_bar_multirow {
 	return ""
     }
     
-    if { ![exists_and_not_null node_id] } {
+    if { ![info exists node_id] || $node_id eq "" } {
         set node_id [ad_conn node_id]
     }
 
@@ -124,8 +124,7 @@ ad_proc -public ad_context_bar_multirow {
     template::multirow create $multirow url label
 
     foreach elm [ad_context_node_list -from_node $from_node $node_id] {
-        set elm_0 [lindex $elm 0]
-        set elm_1 [lindex $elm 1]
+	lassign $elm elm_0 elm_1
         if { $node_id_url_end > 0 && [string match -nocase $node_id_url [string range $elm_0 0 ${node_id_url_end}-1] ] } {
             set elm_0 [string range $elm_0 $node_id_url_end end]
         }
@@ -168,7 +167,7 @@ ad_proc -public ad_context_bar {
 	return ""
     }
 
-    if { ![exists_and_not_null node_id] } {
+    if { ![info exists node_id] || $node_id eq "" } {
         set node_id [ad_conn node_id]
     }
 
@@ -181,7 +180,7 @@ ad_proc -public ad_context_bar {
 
     if {[llength $args] == 0} { 
         # fix last element to just be literal string
-        set context [lreplace $context end end [lindex [lindex $context end] 1]]
+        set context [lreplace $context end end [lindex $context end 1]]
     } else {
 	if {![string match "\{*" $args]} {
 	    # args is not a list, transform it into one.
@@ -247,7 +246,7 @@ ad_proc -public ad_navbar args {
 } {
     set counter 0
     foreach arg $args {
-	lappend link_list "<a href=\"[lindex $arg 0]\">[lindex $arg 1]</a>"
+        lappend link_list [subst {<a href="[ns_quotehtml [lindex $element 0]]">[ns_quotehtml [lindex $element 1]]</a>}]
 	incr counter
     }
     if { $counter } {
@@ -268,9 +267,9 @@ ad_proc -public ad_choice_bar { items links values {default ""} } {
 
     foreach value $values {
 	if { $default eq $value  } {
-	        lappend return_list "<strong>[lindex $items $count]</strong>"
+	    lappend return_list "<strong>[lindex $items $count]</strong>"
 	} else {
-	        lappend return_list "<a href=\"[lindex $links $count]\">[lindex $items $count]</a>"
+	    lappend return_list [subst {<a href="[ns_quotehtml [lindex $links $count]]">[ns_quotehtml [lindex $items $count]]</a>}]
 	}
 
 	incr count
@@ -387,7 +386,7 @@ proc menu_submenu_select_list {items urls {highlight_url "" }} {
 	# the current url then select it
 	if {$highlight_url ne "" && $highlight_url == [lindex $urls $counter]} {
  	    append return_string "<OPTION VALUE=\"[lindex $urls $counter]\" selected>$item"
-	} elseif {$highlight_url eq "" && [string match *$url_stub* [lindex $urls $counter]]} {
+	} elseif {$highlight_url eq "" && [string match "*$url_stub*" [lindex $urls $counter]]} {
 	    append return_string "<OPTION VALUE=\"[lindex $urls $counter]\" selected>$item"
 	} else {
 	    append return_string "<OPTION VALUE=\"[lindex $urls $counter]\">$item"
@@ -410,7 +409,7 @@ proc ad_menu_header {{section ""} {uplink ""}} {
 
     # if it is an excluded directory, just return
     set url_stub [ad_conn url]
-    set full_filename "[ns_info pageroot]$url_stub"
+    set full_filename "$::acs::pageroot$url_stub"
    
 
     foreach naked_pattern [ad_naked_html_patterns] {
@@ -614,7 +613,7 @@ proc ad_menu_footer {{section ""}} {
    
     # if it is an excluded directory, just return
     set url_stub [ad_conn url]
-    set full_filename "[ns_info pageroot]$url_stub"
+    set full_filename "$::acs::pageroot$url_stub"
    
     foreach naked_pattern [ad_naked_html_patterns] {
 	if { [string match $naked_pattern $url_stub] } {

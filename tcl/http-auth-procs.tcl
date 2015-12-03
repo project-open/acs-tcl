@@ -18,10 +18,8 @@ ad_proc http_auth::set_user_id {} {
         # get the second bit, the base64 encoded bit
         set up [lindex [split $a " "] 1]
         # after decoding, it should be user:password; get the username
-        set user [lindex [split [ns_uudecode $up] ":"] 0]
-        set password [lindex [split [ns_uudecode $up] ":"] 1]
+	lassign [split [ns_uudecode $up] ":"] user password
         ns_log debug "\nACS VERSION [ad_acs_version]"
-        
         ns_log debug "\nHTTP authentication"
 	# check all authorities 
 	foreach authority [auth::authority::get_authority_options] {
@@ -77,8 +75,6 @@ ad_proc http_auth::register_filter {
     
     ad_register_filter preauth GET $url_pattern http_auth::authorize $proc
     ad_register_filter preauth POST $url_pattern http_auth::authorize $proc
-    ad_register_filter preauth PUT $url_pattern http_auth::authorize $proc
-    ad_register_filter preauth DELETE $url_pattern http_auth::authorize $proc
     ad_register_filter preauth HEAD $url_pattern http_auth::authorize $proc
 
 }
@@ -97,7 +93,7 @@ ad_proc http_auth::authorize {
     if {$proc eq {}} {
 	set proc http_auth::site_node_authorize
     }
-    return [eval [list $proc -user_id $user_id -url [ns_conn url]]]
+    return [$proc -user_id $user_id -url [ns_conn url]]
 }
 
 ad_proc http_auth::site_node_authorize {

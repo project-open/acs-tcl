@@ -80,63 +80,20 @@ ad_proc -deprecated ad_user_new {
     @see auth::create_user
     @see auth::create_local_account
 } {
-    if { $user_id eq "" } {
-        set user_id [db_nextval acs_object_id_seq]
-    }
-
-    if { $password_question eq "" } {
-        set password_question [db_null]
-    }
-
-    if { $password_answer eq "" } {
-        set password_answer [db_null]
-    }
-
-    if { $url eq "" } {
-        set url [db_null]
-    }
-
-    set creation_user ""
-    set peeraddr ""
-    
-    # This may fail, either because there's no connection, or because
-    # we're in the bootstrap-installer, at which point [ad_conn user_id] is undefined.
-    catch {
-        set creation_user [ad_conn user_id]
-        set peeraddr [ad_conn peeraddr]
-    } 
-
-    set salt [sec_random_token]
-    set hashed_password [ns_sha1 "$password$salt"]
-
-    set error_p 0
-    db_transaction {
-
-        set user_id [db_exec_plsql user_insert {}]
-
-        # set password_question, password_answer
-        db_dml update_question_answer {*SQL*} 
-
-        if {[catch {
-            # Call the extension
-            acs_user_extension::user_new -user_id $user_id
-        } errmsg]} {
-            # At this point, we don't want the user addition to fail
-            # if some extension is screwing things up
-        }
-
-    } on_error {
-        # we got an error.  log it and signal failure.
-        global errorInfo
-        ns_log Error "Problem creating a new user: $errorInfo"
-        set error_p 1
-    }
-    
-    if { $error_p } {
-        return 0
-    } 
-    # success.
-    return $user_id
+    return [auth::create_local_account_helper \
+		$email \
+		$first_names \
+		$last_name \
+		$password \
+		$password_question \
+		$password_answer \
+		$url \
+		$email_verified_p \
+		$member_state \
+		$user_id \
+		$username \
+		$authority_id \
+		$screen_name]
 }
 
 ad_proc -public person::person_p {
@@ -487,12 +444,8 @@ ad_proc -private acs_user::get_from_user_id_not_cached { user_id } {
 
     @author Peter Marklund
 } {
-    if {[catch {
-	db_1row select_user_info {*SQL*} -column_array row
-    } err_msg]} {
-	ns_log Error "acs_user::get_from_user_id_not_cached $user_id: Error getting information about user: $err_msg"
-    }
-
+    db_1row select_user_info {*SQL*} -column_array row
+    
     return [array get row]
 }
 
@@ -681,6 +634,7 @@ ad_proc -public party::update {
     db_dml party_update {}
     if {[info exists email]} {
 	db_dml object_title_update {}
+	util_memoize_flush [list ::party::email_not_cached -party_id $party_id]
     }
     acs_user::flush_cache -user_id $party_id
 }

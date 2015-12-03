@@ -10,6 +10,66 @@ ad_library {
 
 namespace eval util {}
 
+ad_proc util::zip {
+    -source:required
+    -destination:required
+} {
+    Create a zip file.
+    
+    @param source is the content to be zipped. If it is a directory, archive will 
+    contain all files into directory without the trailing directory itself.
+    
+    @param destination is the name of the created file
+} {
+    set zip [util::which zip]
+    if {$zip eq ""} {
+      error "zip command not found on the system."
+    }
+    set cmd [list exec]
+    switch $::tcl_platform(platform) {
+      windows {lappend cmd cmd.exe /c}
+      default {lappend cmd bash -c}
+    }
+    if {[file isfile $source]} {
+      set filename [file tail $source]
+      set in_path  [file dirname $source]
+    } else {
+      set filename "."
+      set in_path  $source
+    }
+    # To avoid having the full path of the file included in the archive,
+    # we must first cd to the source directory. zip doesn't have an option
+    # to do this without building a little script...
+    set zip_cmd [list]
+    lappend zip_cmd "cd $in_path"
+    lappend zip_cmd "${zip} -r \"${destination}\" \"${filename}\""
+    set zip_cmd [join $zip_cmd " && "]
+    
+    lappend cmd $zip_cmd
+    
+    # create the archive
+    {*}$cmd
+}
+
+ad_proc util::unzip {
+    -source:required
+    -destination:required
+    -overwrite:boolean
+} { 
+    @param source must be the name of a valid zip file to be decompressed
+    
+    @param destination must be the name of a valid directory to contain decompressed files
+} {
+    set unzip [util::which unzip]
+    if {$unzip eq ""} {error "unzip command not found on the system."}
+    # -n means we don't overwrite existing files
+    set cmd [list exec $unzip]
+    if {$overwrite_p} {lappend cmd -o
+    } else {lappend cmd -n}
+    lappend cmd $source -d $destination
+    {*}$cmd
+}
+
 # Let's define the nsv arrays out here, so we can call nsv_exists
 # on their keys without checking to see if it already exists.
 # we create the array by setting a bogus key.
@@ -24,7 +84,13 @@ proc proc_source_file_full_path {proc_name} {
     }
 }
 
-ad_proc util_report_library_entry {{extra_message ""}} "Should be called at beginning of private Tcl library files so that it is easy to see in the error log whether or not private Tcl library files contain errors." {
+ad_proc util_report_library_entry {
+    {extra_message ""}
+} {
+    Should be called at beginning of private Tcl library files so
+    that it is easy to see in the error log whether or not 
+    private Tcl library files contain errors.
+} {
     set tentative_path [info script]
     regsub -all {/\./} $tentative_path {/} scrubbed_path
     if { $extra_message eq ""  } {
@@ -48,7 +114,7 @@ ad_proc check_for_form_variable_naughtiness {
     $foo and $bar set to whatever the user typed in the form
 
     this uses the initially nauseating but ultimately delicious
-    tcl system function "uplevel" that lets a subroutine bash
+    Tcl system function "uplevel" that lets a subroutine bash
     the environment and local vars of its caller.  It ain't Common Lisp...
 
     This is an ad-hoc check to make sure users aren't trying to pass in
@@ -75,7 +141,7 @@ ad_proc check_for_form_variable_naughtiness {
     # out because it will cause an unstable release. To add this security
     # feature, we will need to go through all the code in the ACS and make
     # sure that the code doesn't try to overwrite intentionally and also
-    # check to make sure that when tcl files are sourced from another proc,
+    # check to make sure that when Tcl files are sourced from another proc,
     # the appropriate variables are unset.  If you want to install this
     # security feature, then you can look in the release notes for more info.
     # 
@@ -191,17 +257,15 @@ ad_proc -public NsSettoTclString {set_id} {
 ad_proc -public get_referrer {} {
     gets the Referer for the headers
 } { 
-    return [ns_set get [ad_conn headers] Referer]
+    return [ns_set get [ns_conn headers] Referer]
 }
 
 ##
 #  Database-related code
 ##
 
-ad_proc ad_dbclick_check_dml { 
-    {
-	-bind  ""
-    }
+ad_proc -deprecated ad_dbclick_check_dml { 
+    {-bind  ""}
     statement_name table_name id_column_name generated_id return_url insert_dml 
 } {
     This proc is used for pages using double click protection. table_name
@@ -259,7 +323,9 @@ ad_proc ad_dbclick_check_dml {
     return
 }
 
-ad_proc -public util_AnsiDatetoPrettyDate {sql_date} { 
+ad_proc -public util_AnsiDatetoPrettyDate {
+    sql_date
+} { 
     Converts 1998-09-05 to September 5, 1998
 } {
     set sql_date [string range $sql_date 0 9]
@@ -273,7 +339,7 @@ ad_proc -public util_AnsiDatetoPrettyDate {sql_date} {
 	# was "8.0"
 
 	set trimmed_month [string trimleft $month 0]
-	set pretty_month [lindex $allthemonths [expr {$trimmed_month - 1}]]
+	set pretty_month [lindex $allthemonths $trimmed_month-1]
 
 	set trimmed_day [string trimleft $day 0]
 
@@ -281,7 +347,9 @@ ad_proc -public util_AnsiDatetoPrettyDate {sql_date} {
     }
 }
 
-ad_proc -public remove_nulls_from_ns_set {old_set_id} {
+ad_proc -public remove_nulls_from_ns_set {
+    old_set_id
+} {
     Creates and returns a new ns_set without any null value fields
 
     @return new ns_set 
@@ -302,9 +370,7 @@ ad_proc -public remove_nulls_from_ns_set {old_set_id} {
 }
 
 ad_proc -public merge_form_with_query {
-    {
-	-bind {}
-    }
+    {-bind {}}
     form statement_name sql_qry 
 } {
     Merges a form with a query string.
@@ -335,10 +401,11 @@ ad_proc -public merge_form_with_query {
 
 
 
-proc util_PrettyBoolean {t_or_f { default  "default" } } {
-    if { $t_or_f eq "t" || $t_or_f eq "T" } {
+ad_proc -deprecated util_PrettyBoolean {t_or_f { default  "default" } } {
+} {
+    if { $t_or_f == "t" || $t_or_f eq "T" } {
 	return "Yes"
-    } elseif { $t_or_f eq "f" || $t_or_f eq "F" } {
+    } elseif { $t_or_f == "f" || $t_or_f eq "F" } {
 	return "No"
     } else {
 	# Note that we can't compare default to the empty string as in 
@@ -352,7 +419,11 @@ proc util_PrettyBoolean {t_or_f { default  "default" } } {
     }
 }
 
-ad_proc util_PrettyTclBoolean {zero_or_one} "Turns a 1 (or anything else that makes a Tcl IF happy) into Yes; anything else into No" {
+ad_proc util_PrettyTclBoolean {
+    zero_or_one
+} {
+    Turns a 1 (or anything else that makes a Tcl IF happy) into Yes; anything else into No
+} {
   if {$zero_or_one} {
 	return "Yes"
     } else {
@@ -445,10 +516,10 @@ ad_proc -public db_html_select_value_options {
     }
 
     foreach option $options {
-	if { [lsearch -exact $select_option [lindex $option $value_index]] >= 0 } {
-	    append select_options "<option value=\"[util_quote_double_quotes [lindex $option $value_index]]\" selected=\"selected\">[lindex $option $option_index]</option>\n"
+	if { [lindex $option $value_index] in $select_option } {
+	    append select_options "<option value=\"[ad_quotehtml [lindex $option $value_index]]\" selected=\"selected\">[lindex $option $option_index]</option>\n"
 	} else {
-	    append select_options "<option value=\"[util_quote_double_quotes [lindex $option $value_index]]\">[lindex $option $option_index]</option>\n"
+	    append select_options "<option value=\"[ad_quotehtml [lindex $option $value_index]]\">[lindex $option $option_index]</option>\n"
 	}
     }
     return $select_options
@@ -491,11 +562,11 @@ ad_proc -public export_vars {
     <p>
     
     This will export the three variables <code>foo</code>, <code>bar</code> and <code>baz</code> as 
-    hidden HTML form fields. It does exactly the same as <code>[export_form_vars foo bar baz]</code>.
+    hidden HTML form fields. It does exactly the same as <code>[export_vars -form {foo bar baz}]</code>.
 
     <p>
 
-    Example usage: <code>[export_vars -url -sign -override {{foo "new value"}} -exclude { bar } { foo bar baz }]</code>
+    Example usage: <code>[export_vars -sign -override {{foo "new value"}} -exclude { bar } { foo bar baz }]</code>
 
     <p>
 
@@ -832,9 +903,9 @@ ad_proc -public export_vars {
     }
 
     # Prepend with the base URL
-    if { [exists_and_not_null base] } {
+    if { [info exists base] && $base ne "" } {
         if { $export_string ne "" } {
-            if { [regexp {\?} $base] } {
+            if { [string first ? $base] > -1 } {
                 # The base already has query vars
                 set export_string "${base}&${export_string}"
             } else { 
@@ -847,7 +918,7 @@ ad_proc -public export_vars {
     }
     
     # Append anchor
-    if { [exists_and_not_null anchor] } {
+    if { ([info exists anchor] && $anchor ne "") } {
         append export_string "\#$anchor"
     }
     
@@ -887,7 +958,7 @@ ad_proc -deprecated ad_export_vars {
 
     Example:
 
-    <blockquote><pre>doc_body_append [ad_export_vars { msg_id user(email) { order_by date } }]</pre></blockquote>
+    <blockquote><pre>doc_body_append [export_vars { msg_id user(email) { order_by date } }]</pre></blockquote>
     will export the variable <code>msg_id</code> and the value <code>email</code> from the array <code>user</code>,
     and it will export a variable named <code>order_by</code> with the value <code>date</code>.
 
@@ -908,7 +979,7 @@ ad_proc -deprecated ad_export_vars {
 
     A more involved example:
     <blockquote><pre>set my_vars { msg_id user(email) order_by }
-doc_body_append [ad_export_vars -override { order_by $new_order_by } $my_vars]</pre></blockquote>
+doc_body_append [export_vars -override { order_by $new_order_by } $my_vars]</pre></blockquote>
 
     @param form set this parameter if you want the variables exported as hidden form variables,
     as opposed to URL variables, which is the default.
@@ -937,39 +1008,37 @@ doc_body_append [ad_export_vars -override { order_by $new_order_by } $my_vars]</
     foreach argument { include override } {
 	foreach arg [set $argument] {
 	    if { [llength $arg] == 1 } { 
-		if { $override_p || [lsearch -exact $exclude $arg] == -1 } {
+		if { $override_p || $arg ni $exclude } {
 		    upvar $arg var
 		    if { [array exists var] } {
 			# export the entire array
 			foreach name [array names var] {
-			    if { $override_p || [lsearch -exact $exclude "${arg}($name)"] == -1 } {
+			    if { $override_p || "${arg}($name)" ni $exclude } {
 				set export($arg.$name) $var($name)
 			    }
 			}
 		    } elseif { [info exists var] } {
-			if { $override_p || [lsearch -exact $exclude $arg] == -1 } {
+			if { $override_p || $arg ni $exclude } {
 			    # if the var is part of an array, we'll translate the () into a dot.
 			    set left_paren [string first ( $arg]
 			    if { $left_paren == -1 } {
 				set export($arg) $var
 			    } else {
 				# convert the parenthesis into a dot before setting
-				set export([string range $arg 0 [expr { $left_paren - 1}]].[string \
-					range $arg [expr { $left_paren + 1}] end-1]) $var
+				set export([string range $arg 0 $left_paren-1].[string range $arg $left_paren+1 end-1]) $var
 			    }
 			}
 		    }
 		}
 	    } elseif { [llength $arg] %2 == 0 } {
 		foreach { name value } $arg {
-		    if { $override_p || [lsearch -exact $exclude $name] == -1 } {
+		    if { $override_p || $name ni $exclude } {
 			set left_paren [string first ( $name]
 			if { $left_paren == -1 } {
 			    set export($name) [lindex [uplevel list \[subst [list $value]\]] 0]
 			} else {
 			    # convert the parenthesis into a dot before setting
-			    set export([string range $arg 0 [expr { $left_paren - 1}]].[string \
-				    range $arg [expr { $left_paren + 1}] end-1]) \
+			    set export([string range $arg 0 $left_paren-1].[string range $arg $left_paren+1 end-1]) \
 				    [lindex [uplevel list \[subst [list $value]\]] 0]
 			}
 		    }
@@ -1020,7 +1089,7 @@ ad_proc -deprecated export_form_vars {
     export_vars is now the prefered interface.
     <p>
 
-    Example usage: <code>[export_form_vars -sign foo bar:multiple baz]</code>
+    Example usage: <code>[export_vars -form -sign {foo bar:multiple baz}]</code>
 
     @param sign If this flag is set, all the variables output will be
     signed using <a
@@ -1035,9 +1104,7 @@ ad_proc -deprecated export_form_vars {
 } { 
     set hidden ""
     foreach var_spec $args {
-	set var_spec_pieces [split $var_spec ":"]
-	set var [lindex $var_spec_pieces 0]
-	set type [lindex $var_spec_pieces 1]
+	lassign [split $var_spec ":"] var type
 	upvar 1 $var value
 	if { [info exists value] } {
 	    switch $type {
@@ -1080,7 +1147,11 @@ ad_proc -public export_entire_form {} {
     return $hidden
 }
 
-ad_proc export_ns_set_vars {{format "url"} {exclusion_list ""} {setid ""}} {
+ad_proc export_ns_set_vars {
+    {format "url"} 
+    {exclusion_list ""} 
+    {setid ""}
+} {
     Returns all the params in an ns_set with the exception of those in
     exclusion_list. If no setid is provide, ns_getform is used. If
     format = url, a url parameter string will be returned. If format = form, a
@@ -1103,14 +1174,14 @@ ad_proc export_ns_set_vars {{format "url"} {exclusion_list ""} {setid ""}} {
     if { $setid ne "" } {
         set set_size [ns_set size $setid]
         set set_counter_i 0
-        while { $set_counter_i<$set_size } {
+        while { $set_counter_i < $set_size } {
             set name [ns_set key $setid $set_counter_i]
             set value [ns_set value $setid $set_counter_i]
-            if {[lsearch $exclusion_list $name] == -1 && $name ne ""} {
+            if {$name ni $exclusion_list && $name ne ""} {
                 if {$format eq "url"} {
                     lappend return_list "[ns_urlencode $name]=[ns_urlencode $value]"
                 } else {
-                    lappend return_list " name=\"[ad_quotehtml $name]\" value=\"[ad_quotehtml $value]\""
+                    lappend return_list " name=\"[ns_quotehtml $name]\" value=\"[ns_quotehtml $value]\""
                 }
             }
             incr set_counter_i
@@ -1119,11 +1190,11 @@ ad_proc export_ns_set_vars {{format "url"} {exclusion_list ""} {setid ""}} {
     if {$format eq "url"} {
         return [join $return_list "&"]
     } else {
-        return "<div><input type=\"hidden\" [join $return_list " ></div>\n <div><input type=\"hidden\" "] ></div>"
+        return "<div><input type='hidden' [join $return_list " ></div>\n <div><input type='hidden' "] ></div>"
     }
 }
 
-ad_proc export_url_vars {
+ad_proc -deprecated export_url_vars {
     -sign:boolean
     args 
 } {
@@ -1166,18 +1237,13 @@ ad_proc export_url_vars {
     foreach var_spec $args { 
 	if { [string first "=" $var_spec] != -1 } {
 	    # There shouldn't be more than one equal sign, since the value should already be url-encoded.
-	    set var_spec_pieces [split $var_spec "="]
-	    set var [lindex $var_spec_pieces 0]
-	    set value [lindex $var_spec_pieces 1]
+	    lassign [split $var_spec "="] var value
 	    lappend params "$var=$value"
 	    if { $sign_p } {
 		lappend params "[ns_urlencode [ns_urldecode $var]:sig]=[ns_urlencode [ad_sign [ns_urldecode $value]]]"
 	    }
 	} else {
-	    set var_spec_pieces [split $var_spec ":"]
-	    set var [lindex $var_spec_pieces 0]
-	    set type [lindex $var_spec_pieces 1]
-	    
+	    lassign [split $var_spec ":"] var type
 	    upvar 1 $var upvar_value
 	    if { [info exists upvar_value] } {
 		switch $type {
@@ -1219,10 +1285,10 @@ ad_proc -public export_entire_form_as_url_vars {
 	    set varname [ns_set key $the_form $i]
 	    set varvalue [ns_set value $the_form $i]
 	    if {
-		$vars_to_passthrough eq "" ||
-		([lsearch -exact $vars_to_passthrough $varname] != -1)
+		$vars_to_passthrough eq "" 
+		|| ($varname in $vars_to_passthrough)
 	    } {
-		lappend params "[ns_urlencode $varname]=[ns_urlencode $varvalue]" 
+		lappend params "[ns_urlencode $varname]=[ad_urlencode_query $varvalue]" 
 	    }
 	}
 	return [join $params "&"]
@@ -1307,182 +1373,9 @@ ad_proc -public util_search_list_of_lists {list_of_lists query_string {sublist_e
     return -1
 }
 
-# --- network stuff 
-
-ad_proc -public util_get_http_status {url {use_get_p 1} {timeout 30}} {
-    Returns the HTTP status code, e.g., 200 for a normal response 
-    or 500 for an error, of a URL.  By default this uses the GET method 
-    instead of HEAD since not all servers will respond properly to a 
-    HEAD request even when the URL is perfectly valid.  Note that 
-    this means AOLserver may be sucking down a lot of bits that it 
-    doesn't need.
-} { 
-    if {$use_get_p} {
-	set http [ns_httpopen GET $url "" $timeout] 
-    } else {
-	set http [ns_httpopen HEAD $url "" $timeout] 
-    }
-    set rfd [lindex $http 0] 
-    set wfd [lindex $http 1] 
-    close $rfd
-    close $wfd
-    set headers [lindex $http 2] 
-    set response [ns_set name $headers] 
-    set status [lindex $response 1] 
-    ns_set free $headers
-    return $status
-}
-
-ad_proc -public util_link_responding_p {
-    url 
-    {list_of_bad_codes "404"}
+ad_proc -public util_report_successful_library_load {
+    {extra_message ""}
 } {
-    Returns 1 if the URL is responding (generally we think that anything other than 404 (not found) is okay).
-
-    @see util_get_http_status 
-} {
-    if { [catch { set status [util_get_http_status $url] } errmsg] } {
-	# got an error; definitely not valid
-	return 0
-    } else {
-	# we got the page but it might have been a 404 or something
-	if { [lsearch $list_of_bad_codes $status] != -1 } {
-	    return 0
-	} else {
-	    return 1
-	}
-    }
-}
-
-# system by Tracy Adams (teadams@arsdigita.com) to permit AOLserver to POST 
-# to another Web server; sort of like ns_httpget
-
-ad_proc -public util_httpopen {
-    method 
-    url 
-    {rqset ""} 
-    {timeout 30} 
-    {http_referer ""}
-} { 
-    Like ns_httpopen but works for POST as well; called by util_httppost
-} { 
-    
-    if { ![string match "http://*" $url] } {
-        return -code error "Invalid url \"$url\":  _httpopen only supports HTTP"
-    }
-    set url [split $url /]
-    set hp [split [lindex $url 2] :]
-    set host [lindex $hp 0]
-    set port [lindex $hp 1]
-    if { [string match $port ""] } {set port 80}
-    set uri /[join [lrange $url 3 end] /]
-    set fds [ns_sockopen -nonblock $host $port]
-    set rfd [lindex $fds 0]
-    set wfd [lindex $fds 1]
-    if { [catch {
-        _ns_http_puts $timeout $wfd "$method $uri HTTP/1.0\r"
-        _ns_http_puts $timeout $wfd "Host: $host\r"
-        if {$rqset ne ""} {
-            for {set i 0} {$i < [ns_set size $rqset]} {incr i} {
-                _ns_http_puts $timeout $wfd \
-                    "[ns_set key $rqset $i]: [ns_set value $rqset $i]\r"
-            }
-        } else {
-            _ns_http_puts $timeout $wfd \
-                "Accept: */*\r"
-
-            _ns_http_puts $timeout $wfd "User-Agent: Mozilla/1.01 \[en\] (Win95; I)\r"    
-            _ns_http_puts $timeout $wfd "Referer: $http_referer \r"    
-	}
-
-    } errMsg] } {
-        global errorInfo
-        #close $wfd
-        #close $rfd
-        if { [info exists rpset] } {ns_set free $rpset}
-        return -1
-    }
-    return [list $rfd $wfd ""]
-    
-}
-
-# httppost; give it a URL and a string with formvars, and it 
-# returns the page as a Tcl string
-# formvars are the posted variables in the following form: 
-#        arg1=value1&arg2=value2
-
-# in the event of an error or timeout, -1 is returned
-
-ad_proc -public util_httppost {url formvars {timeout 30} {depth 0} {http_referer ""}} {
-    Returns the result of POSTing to another Web server or -1 if there is an error or timeout.  
-    formvars should be in the form \"arg1=value1&arg2=value2\".  
-    <p> 
-    post is encoded as application/x-www-form-urlencoded.  See util_http_file_upload
-    for file uploads via post (encoded multipart/form-data).
-    <p> 
-    @see util_http_file_upload
-} {
-    if { [catch {
-	if {[incr depth] > 10} {
-		return -code error "util_httppost:  Recursive redirection:  $url"
-	}
-	set http [util_httpopen POST $url "" $timeout $http_referer]
-	set rfd [lindex $http 0]
-	set wfd [lindex $http 1]
-
-	#headers necesary for a post and the form variables
-
-	_ns_http_puts $timeout $wfd "Content-type: application/x-www-form-urlencoded \r"
-	_ns_http_puts $timeout $wfd "Content-length: [string length $formvars]\r"
-	_ns_http_puts $timeout $wfd \r
-	_ns_http_puts $timeout $wfd "$formvars\r"
-	flush $wfd
-	close $wfd
-
-	set rpset [ns_set new [_ns_http_gets $timeout $rfd]]
-		while 1 {
-			set line [_ns_http_gets $timeout $rfd]
-			if { ![string length $line] } break
-			ns_parseheader $rpset $line
-		}
-
-	set headers $rpset
-	set response [ns_set name $headers]
-	set status [lindex $response 1]
-	if {$status == 302} {
-		set location [ns_set iget $headers location]
-		if {$location ne ""} {
-		    ns_set free $headers
-		    close $rfd
-		    return [util_httpget $location {}  $timeout $depth]
-		}
-	}
-	set length [ns_set iget $headers content-length]
-	if { "" eq $length } {set length -1}
-      	set type [ns_set iget $headers content-type]
-      	set_encoding $type $rfd
-	set err [catch {
-		while 1 {
-			set buf [_ns_http_read $timeout $rfd $length]
-			append page $buf
-			if { "" eq $buf } break
-			if {$length > 0} {
-				incr length -[string length $buf]
-				if {$length <= 0} break
-			}
-		}
-	} errMsg]
-	ns_set free $headers
-	close $rfd
-	if {$err} {
-		global errorInfo
-		return -code error -errorinfo $errorInfo $errMsg
-	}
-    } errmgs ] } {return -1}
-	return $page
-}
-
-ad_proc -public util_report_successful_library_load {{extra_message ""}} {
     Should be called at end of private Tcl library files so that it is 
     easy to see in the error log whether or not private Tcl library 
     files contain errors.
@@ -1508,7 +1401,7 @@ ad_proc -public exists_and_not_null { varname } {
     return [expr { [info exists var] && $var ne "" }] 
 } 
 
-ad_proc -public exists_or_null { varname } {
+ad_proc -public -deprecated exists_or_null { varname } {
     Returns the contents of the variable if it exists, otherwise returns empty string
 } {
     upvar 1 $varname var
@@ -1531,7 +1424,7 @@ ad_proc -public exists_and_equal { varname value } {
     return [expr { [info exists var] && $var eq $value } ]
 }
 
-ad_proc -private set_encoding {
+ad_proc -deprecated -private set_encoding {
   {-text_translation {auto binary}}
   content_type
   channel
@@ -1617,97 +1510,12 @@ ad_proc -private set_encoding {
   fconfigure $channel -translation $trl -encoding $enc
 }
 
-ad_proc -public ad_httpget {
-    -url 
-    {-headers ""} 
-    {-timeout 30}
-    {-depth 0}
-} {
-    Just like ns_httpget, but first headers is an ns_set of
-    headers to send during the fetch.
-
-    ad_httpget also makes use of Conditional GETs (if called with a 
-    Last-Modified header).
-
-    Returns the data in array get form with array elements page status modified.
-} {
-    ns_log debug "Getting {$url} {$headers} {$timeout} {$depth}"
-
-    if {[incr depth] > 10} {
-        return -code error "ad_httpget:  Recursive redirection:  $url"
-    }
-
-    set http [ns_httpopen GET $url $headers $timeout]
-    set rfd [lindex $http 0]
-    close [lindex $http 1]
-    set headers [lindex $http 2]
-    set response [ns_set name $headers]
-    set status [lindex $response 1]
-    set last_modified [ns_set iget $headers last-modified]
-
-    if {$status == 302 || $status == 301} {
-	set location [ns_set iget $headers location]
-	if {$location ne ""} { 
-            ns_set free $headers
-            close $rfd
-	    return [ad_httpget -url $location -timeout $timeout -depth $depth]
-	}
-    } elseif { $status == 304 } {
-        # The requested variant has not been modified since the time specified
-        # A conditional get didn't return anything.  return an empty page and 
-        set page {}
-
-        ns_set free $headers
-        close $rfd
-    } else { 
-        set length [ns_set iget $headers content-length]
-        if { $length eq "" } {set length -1}
-
-	set type [ns_set iget $headers content-type]
-      	set_encoding $type $rfd
-	
-        set err [catch {
-            while 1 {
-                set buf [_ns_http_read $timeout $rfd $length]
-                append page $buf
-                if { "" eq $buf } break
-                if {$length > 0} {
-                    incr length -[string length $buf]
-                    if {$length <= 0} break
-                }
-            }
-        } errMsg]
-        ns_set free $headers
-        close $rfd
-
-        if {$err} {
-            global errorInfo
-            return -code error -errorinfo $errorInfo $errMsg
-        }
-    }
-
-    # order matters here since we depend on page content 
-    # being element 1 in this list in util_httpget 
-    return [list page $page \
-                status $status \
-                modified $last_modified]
-}
-
-ad_proc -public util_httpget {
-    url {headers ""} {timeout 30} {depth 0}
-} {
-    util_httpget simply calls ad_httpget which also returns 
-    status and last_modfied
-    
-    @see ad_httpget
-} {
-    return [lindex [ad_httpget -url $url -headers $headers -timeout $timeout -depth $depth] 1]
-}
-
 # some procs to make it easier to deal with CSV files (reading and writing)
 # added by philg@mit.edu on October 30, 1999
 
-ad_proc util_escape_quotes_for_csv {string} "Returns its argument with double quote replaced by backslash double quote" {
+ad_proc util_escape_quotes_for_csv {string} {
+    Returns its argument with double quote replaced by backslash double quote
+} {
     regsub -all \" $string {\"}  result
 
     return $result
@@ -1782,7 +1590,7 @@ ad_proc -deprecated validate_ad_dateentrywidget {field_name column form {allow_n
 
     # check that either all elements are blank
     # date value is formated correctly for ns_dbformvalue
-    if { [empty_string_p "$day$month$year"] } {
+    if { "$day$month$year" eq "" } {
 	if { $allow_null == 0 } {
 	    error "$field_name must be supplied"
 	} else {
@@ -1797,7 +1605,10 @@ ad_proc -deprecated validate_ad_dateentrywidget {field_name column form {allow_n
     return $date
 }
 
-ad_proc -private util_WriteWithExtraOutputHeaders {headers_so_far {first_part_of_page ""}} {
+ad_proc -private util_WriteWithExtraOutputHeaders {
+    headers_so_far 
+    {first_part_of_page ""}
+} {
     Takes in a string of headers to write to an HTTP connection,
     terminated by a newline.  Checks \[ad_conn outputheaders\] and adds
     those headers if appropriate.  Adds two newlines at the end and writes
@@ -1815,7 +1626,9 @@ ad_proc -private util_WriteWithExtraOutputHeaders {headers_so_far {first_part_of
     ns_write $entire_string_to_write
 }
 
-ad_proc -public ReturnHeaders {{content_type text/html}} {
+ad_proc -private ReturnHeaders {
+    {content_type text/html}
+} {
    We use this when we want to send out just the headers
    and then do incremental writes with ns_write.  This way the user
    doesn't have to wait for streamed output (useful when doing
@@ -1825,7 +1638,7 @@ ad_proc -public ReturnHeaders {{content_type text/html}} {
    any added to outputheaders.
 } {
 
-   if {[string match "text/*" $content_type] && ![string match *charset=* $content_type]} {
+   if {[string match "text/*" $content_type] && ![string match "*charset=*" $content_type]} {
      append content_type "; charset=[ns_config ns/parameters OutputCharset iso-8859-1]"
    }
 
@@ -1844,8 +1657,12 @@ Content-Type: $content_type\r\n"
    }
 }
 
-ad_proc -public ad_return_top_of_page {first_part_of_page {content_type text/html}} { 
+ad_proc -public ad_return_top_of_page {
+    first_part_of_page 
+    {content_type text/html}
+} { 
     Returns HTTP headers plus the top of the user-visible page.  
+    To be used with streaming HTML output
 } {
     ReturnHeaders $content_type
     if { $first_part_of_page ne "" } {
@@ -1866,14 +1683,14 @@ ad_proc -public safe_eval args {
     that may be used to execute unsafe code.
 } {
     foreach arg $args {
-	if { [regexp {[\[;]} $arg] } {
+	if { [string match {*[\[;]*} $arg] } {
 	    return -code error "Unsafe argument to safe_eval: $arg"
 	}
     }
     return [ad_apply uplevel $args]
 }
 
-ad_proc -public lmap {list proc_name} {
+ad_proc -public -deprecated lmap {list proc_name} {
     Applies proc_name to each item of the list, appending the result of 
     each call to a new list that is the return value.
 } {
@@ -1897,7 +1714,7 @@ ad_proc -public ad_decode { args } {
 
     set counter 1
 
-    while { $counter < [expr {$num_args - 2}] } {
+    while { $counter < $num_args - 2 } {
 	lappend from_list [lindex $args $counter]
 	incr counter
 	lappend to_list [lindex $args $counter]
@@ -1928,132 +1745,366 @@ ad_proc -public ad_urlencode { string } {
     return $ad_encoded_string
 }
 
-ad_proc -public ad_get_cookie {
-    { -include_set_cookies t }
-    name { default "" }
-} { 
-    Returns the value of a cookie, or $default if none exists.
-} {
-    if { $include_set_cookies eq "t" } {
+if {[ns_info name] eq "NaviServer"} {
+    ad_proc -public ad_urlencode_path { string } {
+	encode provided string with url-encoding for paths (instead of queries) as defined in RFC 3986
+    } { 
+	return [ns_urlencode -part path -- $string]
+    }
+    ad_proc -public ad_urldecode_path { string } {
+	decode provided string with url-encoding for paths (instead of queries) as defined in RFC 3986
+    } {
+	return [ns_urldecode -part path -- $string]
+    }
+    ad_proc -public ad_urlencode_query { string } {
+	encode provided string with url-encoding for query (instead of paths) as defined in RFC 3986
+    } { 
+	return [ns_urlencode -part query -- $string]
+    }
+    ad_proc -public ad_urldecode_query { string } {
+	decode provided string with url-encoding for query (instead of paths) as defined in RFC 3986
+    } {
+	return [ns_urldecode -part query -- $string]
+    }
+} else {
+    ad_proc -public ad_urlencode_path { string } {
+	encode provided string with url-encodingfor paths; 
+	same as ad_urlencode, since aolserver does not support this difference
+    } {
+	return [ad_urlencode $string]
+    }
+    ad_proc -public ad_urldecode_path { string } {
+	decode provided string with url-encoding for paths; 
+	same as ns_urldecode, since aolserver does not support this difference
+    } {
+	return [ns_urldecode $string]
+    }
+    ad_proc -public ad_urlencode_query { string } {
+	encode provided string with url-encodingfor paths; 
+	same as ad_urlencode, since aolserver does not support this difference
+    } {
+	return [ad_urlencode $string]
+    }
+    ad_proc -public ad_urldecode_query { string } {
+	decode provided string with url-encoding for paths; 
+	same as ns_urldecode, since aolserver does not support this difference
+    } {
+	return [ns_urldecode $string]
+    }    
+}
+
+
+
+if {[ns_info name] eq "NaviServer"} {
+    #
+    # Use NaviServer primitives
+    #
+    ad_proc -public ad_unset_cookie {
+	{-secure f}
+	{-domain ""}
+	{-path "/"}
+	name
+    } {
+	Un-sets a cookie.
+	
+	@see ad_get_cookie
+	@see ad_set_cookie
+    } {
+	ns_deletecookie -domain $domain -path $path -replace t -secure $secure -- $name
+    }
+
+    #
+    # Get Cookie
+    #
+    ad_proc -public ad_get_cookie {
+	{ -include_set_cookies t }
+	name 
+	{ default "" }
+    } { 
+	Returns the value of a cookie, or $default if none exists.
+
+	@see ad_set_cookie
+	@see ad_unset_cookie
+    } {
+	ns_getcookie -include_set_cookies $include_set_cookies -- $name $default
+    }
+    #
+    # Set Cookie
+    #
+    ad_proc -public ad_set_cookie {
+	{-replace f}
+	{-secure f}
+	{-expire f}
+	{-max_age ""}
+	{-domain ""}
+	{-path "/"}
+	{-discard f}
+	{-scriptable t}	
+	name 
+	{value ""}
+    } { 
+
+	Sets a cookie.  Cookies are name/value pairs stored in a client's
+	browser and are typically sent back to the server of origin with
+	each request.
+
+	@param max_age specifies the maximum age of the cookies in
+	seconds (consistent with RFC 2109). max_age "inf" specifies cookies
+	that never expire. The default behavior is to issue session
+	cookies.
+	
+	@param expire specifies whether we should expire (clear) the cookie. 
+	Setting Max-Age to zero ought to do this, but it doesn't in some browsers
+	(tested on IE 6).
+
+	@param path specifies a subset of URLs to which this cookie
+	applies. It must be a prefix of the URL being accessed.
+
+	@param domain specifies the domain(s) to which this cookie
+	applies. See RFC2109 for the semantics of this cookie attribute.
+
+	@param secure specifies to the user agent that the cookie should
+	only be transmitted back to the server of secure transport.
+	
+	@param replace forces the current output headers to be checked for
+	the same cookie. If the same cookie is set for a second time
+	without the replace option being specified, the client will
+	receive both copies of the cookie.
+
+	@param discard instructs the user agent to discard the
+	cookie when when the user agent terminates.
+
+	@param scriptable If the scriptable option is false or not
+	given the cookie is unavailable to javascript on the
+	client. This can prevent cross site scripting attacks (XSS) on
+	clients which support the HttpOnly option. Set -scriptable to
+	true if you need to access the cookie via javascript. For
+	compatibility reasons with earlier versions, OpenACS 5.8 has
+	the default set to "true". OpenACS 5.9 will have the flag per
+	default set to "false".
+
+	@param value is autmatically URL encoded.
+
+	@see ad_get_cookie
+	@see ad_unset_cookie    
+    } {
+
+
+	if { $expire == "f"} {
+	    set expire -1
+	} elseif {$max_age ne ""} {
+	    if {$max_age eq "inf"} {
+		set expire -1
+	    } else {
+		set expire [expr {[ns_time] + $max_age}]
+	    }
+	}
+
+	ns_setcookie -discard $discard -domain $domain -expires $expire -path $path \
+	    -replace $replace -scriptable $scriptable -secure $secure -- \
+	    $name $value
+    }
+    
+} else {
+    #
+    # Use plain AOLserver
+    #
+
+    #
+    # Unset Cookie
+    #
+    ad_proc -public ad_unset_cookie {
+	{-secure f}
+	{-domain ""}
+	{-path "/"}
+	name
+    } {
+	Un-sets a cookie.
+	
+	@see ad_get_cookie
+	@see ad_set_cookie
+    } {
+	ad_set_cookie -replace t -expire t -max_age 0 \
+	    -secure $secure -domain $domain -path $path \
+	    $name ""
+    }
+
+    #
+    # Get Cookie
+    #
+    ad_proc -public ad_get_cookie {
+	{ -include_set_cookies t }
+	name 
+	{ default "" }
+    } { 
+	Returns the value of a cookie, or $default if none exists.
+
+	@see ad_set_cookie
+	@see ad_unset_cookie
+    } {
+
+	if { $include_set_cookies == "t" } {
+	    set headers [ns_conn outputheaders]
+	    set nr_headers [ns_set size $headers]
+	    for { set i 0 } { $i < $nr_headers } { incr i } {
+		if { [string tolower [ns_set key $headers $i]] eq "set-cookie" 
+		     && [regexp "^$name=(\[^;\]*)" [ns_set value $headers $i] match value] 
+		 } {
+		    return $value
+		}
+	    }
+	}
+
+	set headers [ns_conn headers]
+	set cookie [ns_set iget $headers Cookie]
+
+	if { [regexp " $name=(\[^;\]*)" " $cookie" match value] } {
+
+	    # If the cookie was set to a blank value we actually stored two quotes.  We need
+	    # to undo the kludge on the way out.
+
+	    if { $value eq "\"\"" } {
+		set value ""
+	    }
+	    return $value
+	}
+
+	return $default
+    }
+
+    #
+    # Set Cookie
+    #
+    ad_proc -public ad_set_cookie {
+	{-replace f}
+	{-secure f}
+	{-expire f}
+	{-max_age ""}
+	{-domain ""}
+	{-path "/"}
+	{-discard f}
+	{-scriptable t}	
+	name 
+	{value ""}
+    } { 
+
+	Sets a cookie.  Cookies are name/value pairs stored in a client's
+	browser and are typically sent back to the server of origin with
+	each request.
+
+	@param max_age specifies the maximum age of the cookies in
+	seconds (consistent with RFC 2109). max_age "inf" specifies cookies
+	that never expire. The default behavior is to issue session
+	cookies.
+	
+	@param expire specifies whether we should expire (clear) the cookie. 
+	Setting Max-Age to zero ought to do this, but it doesn't in some browsers
+	(tested on IE 6).
+
+	@param path specifies a subset of URLs to which this cookie
+	applies. It must be a prefix of the URL being accessed.
+
+	@param domain specifies the domain(s) to which this cookie
+	applies. See RFC2109 for the semantics of this cookie attribute.
+
+	@param secure specifies to the user agent that the cookie should
+	only be transmitted back to the server of secure transport.
+	
+	@param replace forces the current output headers to be checked for
+	the same cookie. If the same cookie is set for a second time
+	without the replace option being specified, the client will
+	receive both copies of the cookie.
+
+	@param discard instructs the user agent to discard the
+	cookie when when the user agent terminates.
+
+	@param scriptable If the scriptable option is false or not
+	given the cookie is unavailable to javascript on the
+	client. This can prevent cross site scripting attacks (XSS) on
+	clients which support the HttpOnly option. Set -scriptable to
+	true if you need to access the cookie via javascript. For
+	compatibility reasons with earlier versions, OpenACS 5.8 has
+	the default set to "true". OpenACS 5.9 will have the flag per
+	default set to "false".
+
+	@param value is autmatically URL encoded.
+
+	@see ad_get_cookie
+	@see ad_unset_cookie    
+    } {
 	set headers [ad_conn outputheaders]
-	for { set i 0 } { $i < [ns_set size $headers] } { incr i } {
-	    if { ![string compare [string tolower [ns_set key $headers $i]] "set-cookie"] && \
-		    [regexp "^$name=(\[^;\]*)" [ns_set value $headers $i] "" "value"] } {
-		return $value
+	if { $replace } {
+	    # Try to find an already-set cookie named $name.
+	    for { set i 0 } { $i < [ns_set size $headers] } { incr i } {
+		if { [string tolower [ns_set key $headers $i]] eq "set-cookie" 
+		     && [string match "$name=*" [ns_set value $headers $i]] 
+		 } {
+		    ns_set delete $headers $i
+		}
 	    }
 	}
-    }
 
-    set headers [ad_conn headers]
-    set cookie [ns_set iget $headers Cookie]
-    if { [regexp " $name=(\[^;\]*)" " $cookie" match value] } {
+	# need to set some value, so we put "" as the cookie value
+	if { $value eq "" } {
+	    set cookie "$name=\"\""
+	} else {
+	    set cookie "$name=$value"
+	}
 
-        # If the cookie was set to a blank value we actually stored two quotes.  We need
-        # to undo the kludge on the way out.
+	if { $path ne "" } {
+	    append cookie "; Path=$path"
+	}
 
-        if { $value eq "\"\"" } {
-              set value ""
-        }
-	return $value
-    }
-
-    return $default
-}
-
-ad_proc -public ad_set_cookie {
-    {
-	-replace f
-	-secure f
-        -expire f
-	-max_age ""
-	-domain ""
-	-path "/"
-	-discard f
-    }
-    name {value ""}
-} { 
-
-    Sets a cookie.
-
-    @param max_age specifies the maximum age of the cookies in
-    seconds (consistent with RFC 2109). max_age inf specifies cookies
-    that never expire. The default behavior is to issue session
-    cookies.
-    
-    @param expire specifies whether we should expire (clear) the cookie. 
-    Setting Max-Age to zero ought to do this, but it doesn't in some browsers
-    (tested on IE 6).
-
-    @param path specifies a subset of URLs to which this cookie
-    applies. It must be a prefix of the URL being accessed.
-
-    @param domain specifies the domain(s) to which this cookie
-    applies. See RFC2109 for the semantics of this cookie attribute.
-
-    @param secure specifies to the user agent that the cookie should
-    only be transmitted back to the server of secure transport.
-    
-    @param replace forces the current output headers to be checked for
-    the same cookie. If the same cookie is set for a second time
-    without the replace option being specified, the client will
-    receive both copies of the cookie.
-
-    @param discard instructs the user agent to discard the
-    cookie when when the user agent terminates.
-
-    @param value is autmatically URL encoded.
-
-    @see ad_get_cookie
-} {
-    set headers [ad_conn outputheaders]
-    if { $replace ne "f" } {
-	# Try to find an already-set cookie named $name.
-	for { set i 0 } { $i < [ns_set size $headers] } { incr i } {
-	    if { ![string compare [string tolower [ns_set key $headers $i]] "set-cookie"] && \
-		    [regexp "^$name=" [ns_set value $headers $i]] } {
-		ns_set delete $headers $i
+	if { $discard != "f" } {
+	    append cookie "; Discard"
+	} elseif { $max_age eq "inf" } {
+	    if { $expire == "f"} {
+		#
+		# netscape seemed unhappy with huge max-age, so we use
+		# expires which seems to work on both netscape and IE
+		#
+		append cookie "; Expires=Mon, 01-Jan-2035 01:00:00 GMT"
+	    }
+	} elseif { $max_age ne "" } {
+	    #
+	    # We know $max_age is also not "inf"
+	    #
+	    append cookie "; Max-Age=$max_age"
+	    if {$expire == "f"} {
+		# Reinforce Max-Age via "Expires", unless user required
+		# immediate expiration
+		set expire_time [util::cookietime [expr {[ns_time] + $max_age}]]
+		append cookie "; Expires=$expire_time"
 	    }
 	}
+
+	if {$expire != "f"} {
+	    append cookie "; Expires=Tue, 01-Jan-1980 01:00:00 GMT"
+	}
+
+	if { $domain ne "" } {
+	    append cookie "; Domain=$domain"
+	}
+
+	if { $secure == "t" } {
+	    append cookie "; Secure"
+	}
+
+	if { $scriptable == "f" } {
+	    # Prevent access to this cookie via JavaScript
+	    append cookie "; HttpOnly"
+	}
+
+	ns_log Debug "OACS Set-Cookie: $cookie"
+	ns_set put $headers "Set-Cookie" $cookie
     }
 
-    # need to set some value, so we put "" as the cookie value
-    if { $value eq "" } {
-	set cookie "$name=\"\""
-    } else {
-	set cookie "$name=$value"
-    }
 
-    if { $path ne "" } {
-	append cookie "; Path=$path"
-    }
-
-    if { $discard ne "f" } {
-	append cookie "; Discard"
-    } elseif { $max_age eq "inf" } {
-        if { $expire ne "t" } {
-            # netscape seemed unhappy with huge max-age, so we use
-            # expires which seems to work on both netscape and IE
-            append cookie "; Expires=Mon, 01-Jan-2035 01:00:00 GMT"
-        }
-    } elseif { $max_age ne "" } {
-        append cookie "; Max-Age=$max_age; Expires=[util::cookietime [expr {[ns_time] + $max_age}]]"
-    }
-
-    if {$expire eq "t"} {
-        append cookie "; Expires=Tue, 01-Jan-1980 01:00:00 GMT"
-    }
-
-    if { $domain ne "" } {
-	append cookie "; Domain=$domain"
-    }
-
-    if { $secure ne "f" } {
-	append cookie "; Secure"
-    }
-
-    ns_log Debug "OACS Set-Cookie: $cookie"
-    ns_set put $headers "Set-Cookie" $cookie
 }
+
+
+
+
 
 ad_proc -private ad_run_scheduled_proc { proc_info } { 
     Runs a scheduled procedure and updates monitoring information in the shared variables. 
@@ -2063,14 +2114,8 @@ ad_proc -private ad_run_scheduled_proc { proc_info } {
     }
 
     # Grab information about the scheduled procedure.
-    set thread [lindex $proc_info 0]
-    set once [lindex $proc_info 1]
-    set interval [lindex $proc_info 2]
-    set proc [lindex $proc_info 3]
-    set args [lindex $proc_info 4]
-    set time [lindex $proc_info 5]
+    lassign $proc_info thread once interval proc args time . debug
     set count 0
-    set debug [lindex $proc_info 7]
 
     ns_mutex lock [nsv_get ad_procs mutex]
     set procs [nsv_get ad_procs .]
@@ -2090,7 +2135,7 @@ ad_proc -private ad_run_scheduled_proc { proc_info } {
 	}
     }
 
-    if { $once eq "f" } {
+    if { $once == "f" } {
 	# The proc will run again - readd it to the shared variable (updating ns_time and
 	# incrementing the count).
 	lappend procs [list $thread $once $interval $proc $args [ns_time] [expr { $count + 1 }] $debug]
@@ -2102,7 +2147,8 @@ ad_proc -private ad_run_scheduled_proc { proc_info } {
     ns_log debug "Running scheduled proc $proc..."
 
     # Actually run the procedure.
-    eval [concat [list $proc] $args]
+    if {$proc ne ""} {$proc {*}$args}
+
     ns_log debug "Done running scheduled proc $proc."
 }
 
@@ -2113,13 +2159,11 @@ if { [apm_first_time_loading_p] } {
 }
 
 ad_proc -public ad_schedule_proc {
-    {
-	-thread f
-	-once f
-	-debug f
-	-all_servers f
-        -schedule_proc ""
-    }
+    {-thread f}
+    {-once f}
+    {-debug f}
+    {-all_servers f}
+    {-schedule_proc ""}
     interval
     proc
     args
@@ -2143,7 +2187,7 @@ ad_proc -public ad_schedule_proc {
 } {
     # we don't schedule a proc to run if we have enabled server clustering,
     # we're not the canonical server, and the procedure was not requested to run on all servers.
-    if { [server_cluster_enabled_p] && ![ad_canonical_server_p] && $all_servers eq "f" } {
+    if { [server_cluster_enabled_p] && ![ad_canonical_server_p] && $all_servers == "f" } {
         return
     } 
 
@@ -2159,45 +2203,51 @@ ad_proc -public ad_schedule_proc {
     ns_mutex unlock [nsv_get ad_procs mutex]
 
     set my_args [list]
-    if { $thread eq "t" } {
+    if { $thread == "t" } {
 	lappend my_args "-thread"
     }
-    if { $once eq "t" } {
+    if { $once == "t" } {
 	lappend my_args "-once"
     }
 
     # Schedule the wrapper procedure (ad_run_scheduled_proc).
 
     if { $schedule_proc eq "" } {
-        eval [concat [list ns_schedule_proc] $my_args [list $interval ad_run_scheduled_proc [list $proc_info]]]
+        ns_schedule_proc {*}$my_args {*}$interval ad_run_scheduled_proc [list $proc_info]
     } else {
-        eval [concat [list $schedule_proc] $my_args $interval [list ad_run_scheduled_proc [list $proc_info]]]
+        $schedule_proc {*}$my_args {*}$interval ad_run_scheduled_proc [list $proc_info]
     }
 }
 
-ad_proc util_ReturnMetaRefresh { url { seconds_delay 0 } } {
+ad_proc -deprecated util_ReturnMetaRefresh { 
+    url 
+    { seconds_delay 0 } 
+} {
     Ugly workaround to deal with IE5.0 bug handling
     multipart/form-data using                                                                                  
     Meta Refresh page instead of a redirect.                                                                                                                   
     
 } {
-    ReturnHeaders
-    ns_write "
+    ad_return_top_of_page [subst {
     <head>
-    <meta http-equiv=\"refresh\" content=\"$seconds_delay;URL=$url\">
-    <script type=\"text/javascript\">
-    window.location.href=\"$url\";
+    <meta http-equiv="refresh" content="$seconds_delay;URL=[ns_quotehtml $url]">
+    <script type="text/javascript">
+    window.location.href = "[ns_quotehtml $url]";
     </script>
     </head>
     <body>
     <h2>Loading...</h2>
-    If your browser does not automatically redirect you, <a href=\"$url\">please click here</a>.
-    </body>"
+    If your browser does not automatically redirect you, <a href="[ns_quotethml $url]">please click here</a>.
+    </body>}]
 }
 
 # Brad Duell (bduell@ncacasi.org) 07/10/2003
 # User session variables, then redirect
-ad_proc -public ad_cache_returnredirect { url { persistent "f" } { excluded_vars "" } } {
+ad_proc -public ad_cache_returnredirect { 
+    url 
+    { persistent "f" } 
+    { excluded_vars "" } 
+} {
     An addition to ad_returnredirect.  It caches all variables in the redirect except those in excluded_vars
     and then calls ad_returnredirect with the resultant string.
 
@@ -2206,21 +2256,22 @@ ad_proc -public ad_cache_returnredirect { url { persistent "f" } { excluded_vars
 } {
     util_memoize_flush_regexp [list [ad_conn session_id] [ad_conn package_id]]
 
-    set url_list [split $url "?"]
-    set url [lindex $url_list 0]
-    set vars [lindex $url_list 1]
+    lassign [split $url "?"] url vars
 
     set excluded_vars_list ""
     set excluded_vars_url ""
     for { set i 0 } { $i < [llength $excluded_vars] } { incr i } {
-	set item [lindex [lindex $excluded_vars $i] 0]
-	set value [lindex [lindex $excluded_vars $i] 1]
+
+	lassign [lindex $excluded_vars $i] item value
+
 	if { $value eq "" } {
+	    set level [template::adp_level]
 	    # Obtain value from adp level
-	    upvar #[template::adp_level] __item item_reference
+	    upvar #$level \
+		__item item_reference \
+		__value value_reference 
 	    set item_reference $item
-	    upvar #[template::adp_level] __value value_reference
-	    uplevel #[template::adp_level] {set __value [expr {$$__item}]}
+	    uplevel #$level {set __value [set $__item]}
 	    set value $value_reference
 	}
 	lappend excluded_vars_list $item
@@ -2236,12 +2287,10 @@ ad_proc -public ad_cache_returnredirect { url { persistent "f" } { excluded_vars
     set saved_list ""
     if { $vars ne "" } {
 	foreach item_value [split $vars "&"] {
-	    set item_value_pair [split $item_value "="]
-	    set item [lindex $item_value_pair 0]
-	    set value [ns_urldecode [lindex $item_value_pair 1]]
-	    if { [lsearch -exact $excluded_vars_list $item] == -1 } {
+	    lassign [split $item_value "="] item value
+	    if {$item ni $excluded_vars_list} {
 		# No need to save the value if it's being passed ...
-		if { [lsearch -exact $saved_list $item] != -1 } {
+		if {$item in $saved_list} {
 		    # Allows for multiple values ...
 		    append value " [ad_get_client_property [ad_conn package_id] $item]"
 		} else {
@@ -2294,18 +2343,17 @@ ad_proc -public ad_returnredirect {
     @see util_user_message
     @see ad_script_abort
 } {
-    if { [string is false $html_p] } {
-      	util_user_message -message $message
-    } else {
-      	util_user_message -message $message -html
-    }
-
-    if { [util_exploit_url_p $target_url] } {
-	error "Redirection to invalid URL: '[ns_quotehtml $target_url]'"
-    }
-
-    if { [util_exploit_url_p $target_url] } {
-	error "Redirection to invalid URL: '[ns_quotehtml $target_url]'"
+    if {$message ne ""} {
+	#
+	# Leave a hint, that we do not want to be consumed on the
+	# current page.
+	#
+        set ::__skip_util_get_user_messages 1
+	if { [string is false $html_p] } {
+	    util_user_message -message $message
+	} else {
+	    util_user_message -message $message -html
+	}
     }
 
     if { [util_complete_url_p $target_url] } {
@@ -2327,25 +2375,10 @@ ad_proc -public ad_returnredirect {
         }
     }
 
-    #Ugly workaround to deal with IE5.0 bug handling multipart/form-data using 
-    #Meta Refresh page instead of a redirect. 
-    # jbank@arsdigita.com 6/7/2000
-    set use_metarefresh_p 0
-    set type [ns_set iget [ad_conn headers] content-type]
-    if { [string match *multipart/form-data* [string tolower $type]] } {
-        set user_agent [ns_set get [ad_conn headers] User-Agent]
-        set use_metarefresh_p [regexp -nocase "msie 5.0" $user_agent match]
-    }
-    if {[string match "https://*" [ad_conn location]] && [string match "http://*" $url]} {
-	# workaround the You are about to be redirected to a connection that
-        # is not secure bug in IE
-	set use_metarefresh_p 1
-    }
-    if { $use_metarefresh_p != 0 } {
-        util_ReturnMetaRefresh $url 
-    } else {
-        ns_returnredirect $url
-    }    
+    # Sanitize URL to avoid potential injection attack
+    regsub -all {[\r\n]} $url "" url
+
+    ns_returnredirect $url    
 }
 
 ad_proc -public util_user_message { 
@@ -2396,6 +2429,14 @@ ad_proc -public util_get_user_messages {
     @see util_user_message
 } {
     set messages [ad_get_client_property -default {} -cache_only t "acs-kernel" "general_messages"]
+
+    #
+    # If there is a hint on the current page, that we do not want the
+    # content to be consumed (e.g. a redirect) the force keep_p.
+    #
+    if {[info exists ::__skip_util_get_user_messages]} {
+       set keep_p 1
+    }
     if { !$keep_p && $messages ne "" } {
         ad_set_client_property "acs-kernel" "general_messages" {}
     }
@@ -2405,74 +2446,7 @@ ad_proc -public util_get_user_messages {
     }
 }
 
-ad_proc -public util_exploit_url_p {{} string} {
-  Determine whether string is an exploit URL, i.e.
-  wheteher it contains strange or forbidden characters.
-} {
-    return 0
-
-    set string [ns_urldecode $string]
-    ns_log Notice "util_exploit_url_p: Checking URL for exploit attemts: '$string'"
-
-    # Check for optional "http://" protocol header
-    # (http)://(demo.project-open.net/intranet/projects/index?var=value&var=value)
-    if {[regexp -nocase {^([a-z]):(\/*)(.*)$} $string match proto slashes string]} {
-	ns_log Notice "util_exploit_url_p: Found a protocol string: '$proto'"
-    } else {
-	ns_log Notice "util_exploit_url_p: Did not find an optional protocol"
-    }
-
-    # Check for optional "demo.project-open.net" host name
-    # (demo.project-open.net)/intranet/projects/index?var=value&var=value
-    if {[regexp -nocase {^([a-z0-9_\.\-]):(.*)$} $string match host string]} {
-	ns_log Notice "util_exploit_url_p: Found a host name: '$host'"
-    } else {
-	ns_log Notice "util_exploit_url_p: Did not find an optional host name"
-    }
-
-    # Check for URL with only a path and no variables
-    if {[regexp -nocase {^([\/a-z0-9_\.\-])+$} $string match path]} {
-	# No variables to be checked...
-	return 0
-    }
-
-    # Check for page path
-    # (/intranet/projects/index)?(var=value&var=value)
-    if {[regexp -nocase {^([\/a-z0-9_\.\-])+\?(.*)$} $string match path string]} {
-	ns_log Notice "util_exploit_url_p: Found a valid path: '$path'"
-    } else {
-	ns_log Notice "util_exploit_url_p: Did not find a valid path in: '$string'"
-	return 1
-    }
-
-    # The rest are var=value pairs now, separated by a "&"
-    set tuples [split $string "&"]
-    ns_log Notice "util_exploit_url_p: Found variable pairs: '$tuples'"
-
-    foreach tuple $tuples {
-	ns_log Notice "util_exploit_url_p: Checking tuple: '$tuple'"
-	if {[regexp -nocase {^([a-z0-9_\.\-]+)=(.*)$} $tuple match var value]} {
-	    ns_log Notice "util_exploit_url_p: Found a valid var=value pair: '$var'='$value'"
-	} else {
-
-	    # Try to decode URL and try again
-	    set tuple [ns_urldecode $tuple]
-	    
-	    if {[regexp -nocase {^([a-z0-9_\.\-]+)=(.*)$} $tuple match var value]} {
-		ns_log Notice "util_exploit_url_p: Found a valid var=value pair: '$var'='$value'"
-	    } else {
-		ns_log Notice "util_exploit_url_p: Found invalid var=value pair: '$tuple'"
-		return 1
-	    }
-	}
-    }
-
-    # Apparent NOT an exploit URL
-    return 0
-}
-
-
-ad_proc -public util_complete_url_p {{} string} {
+ad_proc -public util_complete_url_p {string} {
   Determine whether string is a complete URL, i.e.
   wheteher it begins with protocol: where protocol
   consists of letters only.
@@ -2484,7 +2458,7 @@ ad_proc -public util_complete_url_p {{} string} {
   }
 }
 
-ad_proc -public util_absolute_path_p {{} path} {
+ad_proc -public util_absolute_path_p {path} {
    Check whether the path begins with a slash
 } {
    set firstchar [string index $path 0]
@@ -2510,32 +2484,35 @@ ad_proc -public util_driver_info {
         set driver [ad_conn driver]
     }
 
+    set section [ns_driversection -driver $driver]
+
     switch $driver {
+	nsudp -
         nssock {
             set result(proto) http
-            set result(port) [ns_config -int "ns/server/[ns_info server]/module/nssock" Port]
+            set result(port) [ns_config -int $section Port]
         }
         nsunix {
             set result(proto) http
             set result(port) {}
         }
         nsssl - nsssle {
-            set result(port) [ns_config -int "ns/server/[ns_info server]/module/[ad_conn driver]" Port]
+            set result(port) [ns_config -int $section Port]
             set result(proto) https
         }
         nsopenssl {
-            set result(port) [ns_config -int "ns/server/[ns_info server]/module/[ad_conn driver]" ServerPort]
+            set result(port) [ns_config -int $section ServerPort]
             set result(proto) https
         }
         default {
             ns_log Error "Unknown driver: [ad_conn driver]. Only know nssock, nsunix, nsssl, nsssle, nsopenssl"
-            set result(port) [ns_config -int "ns/server/[ns_info server]/module/nssock" Port]
+            set result(port) [ns_config -int $section Port]
             set result(proto) http
         }
     }
 }
 
-ad_proc -public util_current_location {{}} {
+ad_proc -public util_current_location {} {
    Like ad_conn location - Returns the location string of the current
    request in the form protocol://hostname[:port] but it looks at the
    Host header, that is, takes into account the host name the client
@@ -2552,14 +2529,6 @@ ad_proc -public util_current_location {{}} {
     @author Lars Pind (lars@collaboraid.biz)
     @author Peter Marklund
 } {
-    # Did somebody set a specific redirection address?
-    # This may be useful with funky HTTPS/redirection settings.
-    set current_location [parameter::get_from_package_key -package_key "intranet-core" -parameter UtilCurrentLocationRedirect -default ""]
-    if {"" != $current_location} {
-        return $current_location
-    }
-
-    # Default logic
     set default_port(http) 80
     set default_port(https) 443
     
@@ -2568,22 +2537,16 @@ ad_proc -public util_current_location {{}} {
     set port $driver(port)
 
     # This is the host from the browser's HTTP request
-    set Host [ns_set iget [ad_conn headers] Host]
-    set Hostv [split $Host ":"]
-    set Host_hostname [lindex $Hostv 0]
-    set Host_port [lindex $Hostv 1]
+    set Host [ns_set iget [ns_conn headers] Host]
+    lassign [split $Host ":"] Host_hostname Host_port
 
     # suppress the configured http port when server is behind a proxy, to keep connection behind proxy
-    # fraber 101118: looking for parameter in the wrong package...
-    set suppress_port [parameter::get_from_package_key -package_key "acs-tcl" -parameter "SuppressHttpPort" -default 0]
-
-    if { $suppress_port } {
+    set suppress_port [parameter::get -package_id [apm_package_id_from_key acs-tcl] -parameter SuppressHttpPort -default 0]
+    if { $suppress_port && $port eq [ns_config -int "ns/server/[ns_info server]/module/nssock" Port] } {
         ns_log Debug "util_current_location: suppressing http port $Host_port"
         set Host_port ""
         set port ""
     }
-
-    # ns_log Notice "util_current_location: suppress_port=$suppress_port, port=$port, Host_port=$Host_port"
 
     # Server config location
     if { ![regexp {^([a-z]+://)?([^:]+)(:[0-9]*)?$} [ad_conn location] match location_proto location_hostname location_port] } {
@@ -2599,7 +2562,14 @@ ad_proc -public util_current_location {{}} {
             set port $Host_port
         }    
     }
-
+    
+    if { [ns_config "ns/parameters" ReverseProxyMode false] } {
+	if { [ns_set ifind [ad_conn headers] X-Forwarded-For] > -1
+	     && [ns_set iget [ad_conn headers] X-SSL-Request] == 1} {
+	    set proto https
+	}
+    }
+    
     if { $port ne "" && $port ne $default_port($proto) } {
         return "$proto://$hostname:$port"
     } else {
@@ -2607,7 +2577,7 @@ ad_proc -public util_current_location {{}} {
     }
 }
 
-ad_proc -public util_current_directory {{}} {
+ad_proc -public util_current_directory {} {
     Returns the directory of the current URL.
     <p>
     We can't just use [file dirname [ad_conn url]] because
@@ -2619,7 +2589,7 @@ ad_proc -public util_current_directory {{}} {
 } {
    set path [ad_conn url]
 
-   set lastchar [string range $path [expr {[string length $path]-1}] end]
+   set lastchar [string range $path end end]
    if {$lastchar eq "/" } {
         return $path
    } else { 
@@ -2628,7 +2598,7 @@ ad_proc -public util_current_directory {{}} {
         if {$file_dirname eq "/" } {
             return /
         } else {
-            return  $file_dirname/
+            return $file_dirname/
         }
    }
 }
@@ -2637,12 +2607,14 @@ ad_proc -public util_current_directory {{}} {
 ad_proc -public ad_call_proc_if_exists { proc args } {
     Calls a procedure with particular arguments, only if the procedure is defined.
 } {
-    if { [llength [info procs $proc]] == 1 } {
-	eval $proc $args
+    if { [info commands $proc] ne "" } {
+	$proc {*}$args
     }
 }
 
-ad_proc -public ad_get_tcl_call_stack { {level -2} } {
+ad_proc -public ad_get_tcl_call_stack { 
+    {level -2} 
+} {
     Returns a stack trace from where the caller was called.
     See also ad_print_stack_trace which generates a more readable 
     stack trace at the expense of truncating args.
@@ -2685,7 +2657,7 @@ ad_proc -public ad_ns_set_to_tcl_vars {
 
     @author Lars Pind (lars@pinds.com)
 } {
-    if { [lsearch -exact {ignore fail overwrite} $duplicates] == -1 } {
+    if { $duplicates ni {ignore fail overwrite} } {
 	return -code error "The optional switch duplicates must be either overwrite, ignore or fail"
     }
     
@@ -2750,7 +2722,7 @@ ad_proc -public ad_tcl_vars_list_to_ns_set {
     -put:boolean
     vars_list
 } {
-    Takes a TCL list of variable names and <code>ns_set update</code>s values in an ns_set
+    Takes a Tcl list of variable names and <code>ns_set update</code>s values in an ns_set
     correspondingly: key is the name of the var, value is the value of
     the var. The caller is (obviously) responsible for freeing the set if need be.
 
@@ -2760,7 +2732,7 @@ ad_proc -public ad_tcl_vars_list_to_ns_set {
     @param put If this boolean switch is specified, it'll use <code>ns_set put</code> instead 
     of <code>ns_set update</code> (update is default)
 
-    @param args A TCL list of variable names that will be transported into the ns_set.
+    @param args A Tcl list of variable names that will be transported into the ns_set.
 
     @author Lars Pind (lars@pinds.com)
 
@@ -2993,7 +2965,7 @@ ad_proc -public ad_ns_set_keys {
     set size [ns_set size $set_id]
     for { set i 0 } { $i < $size } { incr i } {
 	set key [ns_set key $set_id $i]
-	if { [lsearch -exact $exclude $key] == -1 } {
+	if {$key ni $exclude} {
 	    if { $colon_p } { 
 		lappend keys ":$key"
 	    } else {
@@ -3024,11 +2996,13 @@ ad_proc -public util_wrap_list {
 } {
     set out "<pre>"
     set line_length 0
+    set line_number 0
     foreach item $items {
 	regsub -all {<[^>]+>} $item "" item_notags
 	if { $line_length > $indent } {
 	    if { $line_length + 1 + [string length $item_notags] > $length } {
 		append out "$eol\n"
+		incr line_number
 		for { set i 0 } { $i < $indent } { incr i } {
 		    append out " "
 		}
@@ -3037,6 +3011,8 @@ ad_proc -public util_wrap_list {
 		append out " "
 		incr line_length
 	    }
+	} elseif {$line_number == 0} {
+	    append out " "
 	}
 	append out $item
 	incr line_length [string length $item_notags]
@@ -3100,7 +3076,7 @@ ad_proc -public util_text_to_url {
     }
 
     # check if the resulting url is already present
-    if { [lsearch -exact $existing_urls $text] > -1 } {
+    if {$text in $existing_urls} {
         
         if { $no_resolve_p } {
             # URL is already present in the existing_urls list and we
@@ -3134,10 +3110,12 @@ ad_proc -public util_text_to_url {
 
 }
 
-ad_proc -public util_unlist { list args } {
+ad_proc -public -deprecated util_unlist { list args } {
 
     Places the <i>n</i>th element of <code>list</code> into the variable named by
     the <i>n</i>th element of <code>args</code>.
+
+    One should use the built-in Tcl command "lassign" instread of this proc.
 
 } {
     for { set i 0 } { $i < [llength $args] } { incr i } {
@@ -3299,268 +3277,6 @@ ad_proc -public util_sets_equal_p { list1 list2 } {
     }
 
     return 1    
-}
-
-ad_proc -public util_http_file_upload { -file -data -binary:boolean -filename 
-                               -name {-mime_type */*} {-mode formvars} 
-                               {-rqset ""} url {formvars {}} {timeout 30} 
-                               {depth 10} {http_referer ""}
-} {
-    Implement client-side HTTP file uploads as multipart/form-data as per 
-    RFC 1867.
-    <p>
-
-    Similar to <a href="proc-view?proc=util_httppost">util_httppost</a>, 
-    but enhanced to be able to upload a file as <tt>multipart/form-data</tt>.  
-    Also useful for posting to forms that require their input to be encoded 
-    as <tt>multipart/form-data</tt> instead of as 
-    <tt>application/x-www-form-urlencoded</tt>.
-
-    <p>
-
-    The switches <tt>-file /path/to/file</tt> and <tt>-data $raw_data</tt>
-    are mutually exclusive.  You can specify one or the other, but not
-    both.  NOTE: it is perfectly valid to not specify either, in which
-    case no file is uploaded, but form variables are encoded using
-    <tt>multipart/form-data</tt> instead of the usual encoding (as
-    noted aboved).
-
-    <p>
-
-    If you specify either <tt>-file</tt> or <tt>-data</tt> you 
-    <strong>must</strong> supply a value for <tt>-name</tt>, which is
-    the name of the <tt>&lt;INPUT TYPE="file" NAME="..."&gt;</tt> form
-    tag.
-
-    <p>
-
-    Specify the <tt>-binary</tt> switch if the file (or data) needs
-    to be base-64 encoded.  Not all servers seem to be able to handle
-    this.  (For example, http://mol-stage.usps.com/mml.adp, which
-    expects to receive an XML file doesn't seem to grok any kind of
-    Content-Transfer-Encoding.)
-
-    <p>
-
-    If you specify <tt>-file</tt> then <tt>-filename</tt> is optional
-    (it can be infered from the name of the file).  However, if you
-    specify <tt>-data</tt> then it is mandatory.
-
-    <p>
-
-    If <tt>-mime_type</tt> is not specified then <tt>ns_guesstype</tt>
-    is used to try and find a mime type based on the <i>filename</i>.  
-    If <tt>ns_guesstype</tt> returns <tt>*/*</tt> the generic value
-    of <tt>application/octet-stream</tt> will be used.
-   
-    <p>
-
-    Any form variables may be specified in one of four formats:
-    <ul>
-    <li><tt>array</tt> (list of key value pairs like what [array get] returns)
-    <li><tt>formvars</tt> (list of url encoded formvars, i.e. foo=bar&x=1)
-    <li><tt>ns_set</tt> (an ns_set containing key/value pairs)
-    <li><tt>vars</tt> (a list of tcl vars to grab from the calling enviroment)
-    </ul>
-
-    <p>
-
-    <tt>-rqset</tt> specifies an ns_set of extra headers to send to
-    the server when doing the POST.
-
-    <p>
-
-    timeout, depth, and http_referer are optional, and are included
-    as optional positional variables in the same order they are used
-    in <tt>util_httppost</tt>.  NOTE: <tt>util_http_file_upload</tt> does
-    not (currently) follow any redirects, so depth is superfulous.
-
-    @author Michael A. Cleverly (michael@cleverly.com)
-    @creation-date 3 September 2002
-} {
-
-    # sanity checks on switches given
-    if {[lsearch -exact {formvars array ns_set vars} $mode] == -1} {
-        error "Invalid mode \"$mode\"; should be one of: formvars,\
-            array, ns_set, vars"
-    }
- 
-    if {[info exists file] && [info exists data]} {
-        error "Both -file and -data are mutually exclusive; can't use both"
-    }
-
-    if {[info exists file]} {
-        if {![file exists $file]} {
-            error "Error reading file: $file not found"
-        }
-
-        if {![file readable $file]} {
-            error "Error reading file: $file permission denied"
-        }
-
-        set fp [open $file]
-        fconfigure $fp -translation binary
-        set data [read $fp]
-        close $fp
-
-        if {![info exists filename]} {
-            set filename [file tail $file]
-        }
-
-        if {[string equal */* $mime_type] || $mime_type eq ""} {
-            set mime_type [ns_guesstype $file]
-        }
-    }
-
-    set boundary [ns_sha1 [list [clock clicks -milliseconds] [clock seconds]]]
-    set payload {}
-
-    if {[info exists data] && [string length $data]} {
-        if {![info exists name]} {
-            error "Cannot upload file without specifing form variable -name"
-        }
-    
-        if {![info exists filename]} {
-            error "Cannot upload file without specifing -filename"
-        }
-    
-        if {[string equal $mime_type */*] || $mime_type eq ""} {
-            set mime_type [ns_guesstype $filename]
-    
-            if {[string equal $mime_type */*] || $mime_type eq ""} {
-                set mime_type application/octet-stream
-            }
-        }
-
-        if {$binary_p} {
-            set data [base64::encode base64]
-            set transfer_encoding base64
-        } else {
-            set transfer_encoding binary
-        }
-
-        append payload --$boundary \
-                       \r\n \
-                       "Content-Disposition: form-data; " \
-                       "name=\"$name\"; filename=\"$filename\"" \
-                       \r\n \
-                       "Content-Type: $mime_type" \
-                       \r\n \
-                       "Content-transfer-encoding: $transfer_encoding" \
-                       \r\n \
-                       \r\n \
-                       $data \
-                       \r\n
-    }
-
-
-    set variables [list]
-    switch -- $mode {
-        array {
-            set variables $formvars 
-        }
-
-        formvars {
-            foreach formvar [split $formvars &] {
-                set formvar [split $formvar  =]
-                set key [lindex $formvar 0]
-                set val [join [lrange $formvar 1 end] =]
-                lappend variables $key $val
-            }
-        }
-
-        ns_set {
-            for {set i 0} {$i < [ns_set size $formvars]} {incr i} {
-                set key [ns_set key $formvars $i]
-                set val [ns_set value $formvars $i]
-                lappend variables $key $val
-            }
-        }
-
-        vars {
-            foreach key $formvars {
-                upvar 1 $key val
-                lappend variables $key $val
-            }
-        }
-    }
-
-    foreach {key val} $variables {
-        append payload --$boundary \
-                       \r\n \
-                       "Content-Disposition: form-data; name=\"$key\"" \
-                       \r\n \
-                       \r\n \
-                       $val \
-                       \r\n
-    }
-
-    append payload --$boundary-- \r\n
-
-    if { [catch {
-        if {[incr depth -1] <= 0} {
-            return -code error "util_http_file_upload:\
-                Recursive redirection: $url"
-        }
-
-        set http [util_httpopen POST $url $rqset $timeout $http_referer]
-        set rfd  [lindex $http 0]
-        set wfd  [lindex $http 1]
-
-        _ns_http_puts $timeout $wfd \
-            "Content-type: multipart/form-data; boundary=$boundary\r"
-        _ns_http_puts $timeout $wfd "Content-length: [string length $payload]\r"
-        _ns_http_puts $timeout $wfd \r
-        _ns_http_puts $timeout $wfd "$payload\r"
-        flush $wfd
-        close $wfd
-        
-        set rpset [ns_set new [_ns_http_gets $timeout $rfd]]
-        while 1 {
-            set line [_ns_http_gets $timeout $rfd]
-            if { ![string length $line] } break
-            ns_parseheader $rpset $line
-        }
-
-        set headers $rpset
-        set response [ns_set name $headers]
-        set status [lindex $response 1]
-        set length [ns_set iget $headers content-length]
-        if { "" eq $length } { set length -1 }
-      	set type [ns_set iget $headers content-type]
-      	set_encoding $type $rfd
-        set err [catch {
-            while 1 {
-                set buf [_ns_http_read $timeout $rfd $length]
-                append page $buf
-                if { "" eq $buf } break
-                if {$length > 0} {
-                    incr length -[string length $buf]
-                    if {$length <= 0} break
-                }
-            }
-        } errMsg]
-
-        ns_set free $headers
-        close $rfd
-
-        if {$err} {
-            global errorInfo
-            return -code error -errorinfo $errorInfo $errMsg
-        }
-    } errmsg] } {
-        if {[info exists wfd] && [lsearch [file channels] $wfd] >= 0} {
-            close $wfd
-        }
-
-        if {[info exists rfd] && [lsearch [file channels] $rfd] >= 0} {
-            close $rfd
-        }
-
-        set page -1
-    }
-    
-    return $page
 }
 
 ad_proc -public util_list_of_ns_sets_to_list_of_lists {
@@ -3731,7 +3447,9 @@ ad_proc -public xml_get_child_node_attribute_by_path {
 }
 
 
-ad_proc -public ad_generate_random_string {{length 8}} {
+ad_proc -public ad_generate_random_string {
+    {length 8}
+} {
     Generates a random string made of numbers and letters
 } {
     return [string range [sec_random_token] 0 $length]
@@ -3750,12 +3468,20 @@ ad_proc -public with_finally {
     @param code Code to be executed that could throw and error
     @param finally Cleanup code to be executed even if an error occurs
 } {
-    global errorInfo errorCode
 
     # Execute CODE.
     set return_code [catch {uplevel $code} string]
-    set s_errorInfo $errorInfo
-    set s_errorCode $errorCode
+
+    if {[info exists ::errorInfo]} {
+	set s_errorInfo $::errorInfo
+    } else {
+	set s_errorInfo ""
+    }
+    if {[info exists ::errorCode]} {
+	set s_errorCode $::errorCode
+    } else {
+	set s_errorCode ""
+    }
 
     # As promised, always execute FINALLY.  If FINALLY throws an
     # error, Tcl will propagate it the usual way.  If FINALLY contains
@@ -3770,6 +3496,19 @@ ad_proc -public with_finally {
 	}
 	1 {
 	    # Error
+	    if {[lindex $s_errorCode 0 0] eq "CHILDSTATUS"} {
+		#
+		# GN: In case the errorCode starts with CHILDSTATUS it
+		# means that an error was raised from an "exec". In
+		# that case the raw error just tells that the "child
+		# process exited abnormally", whithout given any
+		# details. Therefore we add the exit code to the
+		# messages.
+		#
+		set extra "child process (pid [lindex $s_errorCode 0 1]) exited with exit-code [lindex $s_errorCode 0 end]"
+		append string " ($extra)"
+		set s_errorInfo $extra\n$s_errorInfo 
+	    }
 	    return -code error -errorinfo $s_errorInfo -errorcode $s_errorCode $string
 	}
 	2 {
@@ -3947,8 +3686,8 @@ ad_proc -public -deprecated ad_block_sql_urls {
 	# characters in length.
 	#
         if {
-	    [regexp -nocase {[^a-z_]or[^a-z0-9_]} $value] ||
-	    [regexp -nocase {union([^a-z0-9_].*all)?[^a-z0-9_].*select} $value]
+	    [regexp -nocase {[^a-z_]or[^a-z0-9_]} $value] 
+	    || [regexp -nocase {union([^a-z0-9_].*all)?[^a-z0-9_].*select} $value]
 	} {
 	    # Looks like the user has added "union [all] select" to
 	    # the variable, # or is trying to modify the WHERE clause
@@ -3988,12 +3727,12 @@ ad_proc -public -deprecated ad_block_sql_urls {
             }
 
             if {
-		$parse_result_integer == 0 ||
-		$parse_result_integer == -904  ||
-		$parse_result_integer == -1789 ||
-		$parse_result_string == 0 ||
-		$parse_result_string == -904 ||
-		$parse_result_string == -1789
+		$parse_result_integer == 0 
+		|| $parse_result_integer == -904
+		|| $parse_result_integer == -1789 
+		|| $parse_result_string == 0 
+		|| $parse_result_string == -904 
+		|| $parse_result_string == -1789
 	    } {
                 # Code -904 means "invalid column", -1789 means
 		# "incorrect number of result columns". We treat this
@@ -4066,7 +3805,7 @@ proc ad_set_typed_form_variables {conn args why} {
 
     global ad_typed_form_variables
 
-    eval lappend ad_typed_form_variables [lindex $args 0]
+    lappend ad_typed_form_variables {*}[lindex $args 0]
 
     return filter_ok
 }
@@ -4099,7 +3838,7 @@ ad_proc ad_var_type_check_safefilename_p {value} {
     <pre>
 } {
 
-    if { [string match *..* $value] } {
+    if { [string match "*..*" $value] } {
         return 0
     } else {
         return 1
@@ -4128,7 +3867,7 @@ ad_proc ad_var_type_check_number_p {value} {
     #
     <pre>
 } {
-    if { [catch {expr 1.0 * $value}] } {
+    if { [catch {expr {1.0 * $value}}] } {
         return 0
     } else {
         return 1
@@ -4175,7 +3914,7 @@ ad_proc ad_var_type_check_noquote_p {value} {
     <pre>
 } {
 
-    if { [string match *'* $value] } {
+    if { [string match "*'*" $value] } {
         return 0
     } else {
         return 1
@@ -4261,8 +4000,8 @@ ad_proc -public util::backup_file {
 } {
     # Keep generating backup paths until we find one that doesn't already exist
     set backup_counter 1
-    while 1 {
-        if { $backup_counter == "1" } {
+    while {1} {
+        if { $backup_counter == 1 } {
             set backup_path "${file_path}${backup_suffix}"
         } else {
             set backup_path "${file_path}${backup_suffix}.${backup_counter}"
@@ -4299,7 +4038,7 @@ ad_proc -public util::array_list_spec_pretty {
 } {
     set output {}
     foreach { elm val } $list {
-        if { [llength $val] > 1 && [expr {[llength $val] % 2}] == 0  } {
+        if { [llength $val] > 1 && [llength $val] % 2 == 0  } {
             append output [string repeat " " $indent] "$elm \{" \n
 
             append output [util::array_list_spec_pretty $val [expr {$indent + 4}]]
@@ -4320,7 +4059,7 @@ ad_proc -public util::interval_pretty {
     set result {}
     if { $seconds > 0 } {
         set hrs [expr {$seconds / (60*60)}]
-        set mins [expr ($seconds / 60) % 60]
+        set mins [expr {($seconds / 60) % 60}]
         set secs [expr {$seconds % 60}]
         if { $hrs > 0 } { append result "${hrs}h " }
         if { $hrs > 0 || $mins > 0 } { append result "${mins}m " }
@@ -4382,10 +4121,10 @@ ad_proc -public util::age_pretty {
         set age_seconds 60
     }
 
-   if { $age_seconds < [expr {$hours_limit * 60 * 60}] } {
+   if { $age_seconds < $hours_limit * 60 * 60 } {
         set hours [expr {abs($age_seconds / 3600)}]
         set minutes [expr {round(($age_seconds% 3600)/60.0)}]
-        if {[expr {$hours < 24}]} {
+        if {$hours < 24} {
             switch $hours {
                 0 { set result "" }
                 1 { set result "One hour " }
@@ -4405,7 +4144,7 @@ ad_proc -public util::age_pretty {
         }
 
         append result "ago"
-    } elseif { $age_seconds < [expr {$days_limit * 60 * 60 * 24}] } {
+    } elseif { $age_seconds < $days_limit * 60 * 60 * 24 } {
         set result [lc_time_fmt $timestamp_ansi $mode_2_fmt $locale]
     } else {
         set result [lc_time_fmt $timestamp_ansi $mode_3_fmt $locale]
@@ -4455,8 +4194,8 @@ ad_proc -public util::word_diff {
 		set new [$filter_proc $new]
 	}
 
-	set old_f [ns_tmpnam]
-	set new_f [ns_tmpnam]
+	set old_f [ad_tmpnam]
+	set new_f [ad_tmpnam]
 	set old_fd [open $old_f "w"]
 	set new_fd [open $new_f "w"]
 	puts $old_fd [join [split $old $split_by] "\n"]
@@ -4544,7 +4283,7 @@ ad_proc -public util::string_length_compare { s1 s2 } {
     }
 }
 
-ad_proc -public util::roll_server_log {{}} {
+ad_proc -public util::roll_server_log {} {
     Invoke the AOLserver ns_logroll command with some bookend log records.  This rolls the error log, not the access log.
 } { 
     # This param controlls how many backups of the server log to keep, 
@@ -4555,7 +4294,7 @@ ad_proc -public util::roll_server_log {{}} {
     return 0
 } 
 
-ad_proc -public util::cookietime {time} {
+ad_proc -private util::cookietime {time} {
     Return an RFC2109 compliant string for use in "Expires".
 } {
     regsub {, (\d+) (\S+) (\d+)} [ns_httptime $time] {, \1-\2-\3} string
@@ -4608,7 +4347,7 @@ ad_proc -public util::find_all_files {
 		# Remember that we've examined the file.
 		set examined_files($file) 1
 
-		if { $check_file_func eq "" || [eval [list $check_file_func $file]] } {
+		if { $check_file_func eq "" || [$check_file_func $file] } {
 		    # If it's a file, add to our list. If it's a
 		    # directory, add its contents to our list of files to
 		    # examine next time.
@@ -4735,7 +4474,7 @@ ad_proc util::catch_exec {command result_var} {
         switch -exact -- [lindex $::errorCode 0] {
 
             CHILDKILLED {
-                foreach { - pid sigName msg } $::errorCode break
+                lassign $::errorCode  - pid sigName msg 
 
                 # A child process, whose process ID was $pid,                   
                 # died on a signal named $sigName.  A human-                    
@@ -4747,7 +4486,7 @@ ad_proc util::catch_exec {command result_var} {
 
             CHILDSTATUS {
 
-                foreach { - pid code } $::errorCode break
+                lassign $::errorCode  - pid code 
 
                 # A child process, whose process ID was $pid,                   
                 # exited with a non-zero exit status, $code.
@@ -4756,7 +4495,7 @@ ad_proc util::catch_exec {command result_var} {
 
             CHILDSUSP {
 
-                foreach { - pid sigName msg } $::errorCode break
+                lassign $::errorCode  - pid sigName msg 
 
                 # A child process, whose process ID was $pid,                   
                 # has been suspended because of a signal named                  
@@ -4769,7 +4508,7 @@ ad_proc util::catch_exec {command result_var} {
 
             POSIX {
 
-                foreach { - errName msg } $::errorCode break
+                lassign $::errorCode  - errName msg 
 
                 # One of the kernel calls to launch the command                 
                 # failed.  The error code is in $errName, and a                 
@@ -4791,8 +4530,6 @@ ad_proc util::external_url_p { url } {
     HTTP or HTTPS port number added or removed from current host name    
    or another hostname that the host responds to (from host_node_map)
 } {
-    return 0
-
     set locations_list [security::locations]
     # there may be as many as 3 valid full urls from one hostname
     set external_url_p [util_complete_url_p $url]
@@ -4805,4 +4542,92 @@ ad_proc util::external_url_p { url } {
         set external_url_p [expr { $external_url_p && ![string match "${encoded_location}/*" $url] } ] 
     }
     return $external_url_p
+}
+
+ad_proc -public ad_job {
+    {-queue jobs}
+    {-timeout ""}
+    args
+} {
+
+    Convenience wrapper for simple usages of ns_job provided by
+    AOLServer and NaviServer. The provided command (args) is executed
+    in a separate thread of the specified job queue. On success the
+    function returns the result of the provided command.
+
+    If the queue does not exist, the queue is generated on the fly
+    with default settings. When the timeout is specified and it
+    expires, the client side will raise an error. Note that the
+    executing job is not canceled but will run to its end.
+
+    @author Gustaf Neumann
+
+    @param queue Name of job queue
+    @param timeout timeout for job, might be 1:0 for 1 sec
+    @param args the command to be executed
+    @return result of the specified command
+} {
+
+    if {$timeout ne ""} {
+	set timeout "-timeout $timeout"
+    }
+    if {$queue ni [ns_job queues]} {
+	ns_job create $queue
+    }
+    set j [ns_job queue $queue $args]
+    return [ns_job wait {*}$timeout $queue $j]
+}
+
+#
+# Provide a clean way of handling exceptions in mutexed regions
+# (between locking and unlocking of an mutex). Should be used probably
+# on more places in OpenACS.
+#
+
+if {[ns_info name] eq "NaviServer"} {
+    ad_proc -public ad_mutex_eval {mutex script} {
+
+	Compatibility proc for handling differences between NaviServer
+	and AOLserver since AOLserver does not support "ns_mutex
+	eval".
+
+	@author Gustaf Neumann
+	
+    } {
+	uplevel [list ns_mutex eval $mutex $script]
+    }
+} else {
+    ad_proc -public ad_mutex_eval {mutex script} {
+
+	Compatibility proc for handling differences between NaviServer
+	and AOLserver since AOLserver does not support "ns_mutex
+	eval".
+
+	@author Gustaf Neumann
+
+    } {
+	ns_mutex lock $mutex
+	set err [catch {uplevel $script} result]
+	ns_mutex unlock $mutex
+	if {$err} {
+	    error $result
+	}
+	return $result
+    }
+}
+
+ad_proc ad_tmpnam {{template ""}} {
+    A stub function to replace the deprecated "ns_tmpnam", 
+    which uses the deprecated C-library function "tmpnam()"
+} {
+    if {$template eq ""} {
+	set template [ns_config ns/parameters tmpdir]/oacs-XXXXXX
+    }
+    ns_mktemp $template
+}
+
+ad_proc ad_tmpdir {} {
+    conveniece function to return the tmp directory
+} {
+    return [ns_config ns/parameters tmpdir]
 }

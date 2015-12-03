@@ -3,31 +3,6 @@
 <queryset>
    <rdbms><type>postgresql</type><version>7.1</version></rdbms>
 
-<fullquery name="ad_user_new.user_insert">      
-      <querytext>
-
-            select acs__add_user(
-                :user_id,
-                'user',
-                now(),
-                null,
-                :peeraddr,
-                :authority_id,
-                :username,
-                :email,
-                :url,
-                :first_names,
-                :last_name,
-                :hashed_password,
-                :salt,
-                :screen_name,
-                :email_verified_p,
-                :member_state
-            );
-        
-      </querytext>
-</fullquery>
-
 <fullquery name="acs_user::delete.permanent_delete">
       <querytext>
           select acs__remove_user(:user_id);
@@ -122,7 +97,7 @@
                  creation_ip
           from   cc_users 
           where  authority_id = :authority_id
-          and    (lower(username) = lower(:username) OR lower(email) = lower(:username))
+          and    lower(username) = lower(:username)
 
       </querytext>
 </fullquery>

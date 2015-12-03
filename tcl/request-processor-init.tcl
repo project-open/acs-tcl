@@ -24,6 +24,41 @@ if { [parameter::get -package_id [ad_acs_kernel_id] -parameter PerformanceModeP 
   }
 }
 
+if { [parameter::get -package_id [ad_acs_kernel_id] -parameter DebugP -default 0] ||
+     [parameter::get -package_id [ad_acs_kernel_id] -parameter LogDebugP -default 0]
+ } { 
+
+    ad_proc -private rp_debug { { -debug f } { -ns_log_level notice } string } {
+
+	Logs a debugging message, including a high-resolution (millisecond)
+	timestamp. 
+	
+    } {
+	if { [parameter::get -package_id [ad_acs_kernel_id] -parameter DebugP -default 0] } { 
+	    set clicks [clock clicks -milliseconds]
+	    ds_add rp [list debug $string $clicks $clicks]
+	}
+	if { [parameter::get -package_id [ad_acs_kernel_id] -parameter LogDebugP -default 0]
+	     || $debug == "t" 
+	     || $debug eq "1"
+	 } {
+	    if { [info exists ::ad_conn(start_clicks)] } {
+		set timing " ([expr {([clock clicks -milliseconds] - $::ad_conn(start_clicks))}] ms)"
+	    } else {
+		set timing ""
+	    }
+	    ns_log $ns_log_level "RP$timing: $string"
+	}
+    }
+} else {
+    ad_proc -private rp_debug { { -debug f } { -ns_log_level notice } string } {
+	dummy placeholder
+    } {
+	return
+    }
+}
+
+
 # JCD this belongs in acs-permission-init.tcl but I did not want to duplicate [ad_acs_kernel_id]
 # Nuke the existing definition. and create one with the parameter set
 
@@ -57,7 +92,6 @@ if { $listings eq "fancy" || $listings eq "simple" } {
 # acs-templating, so this adp handler can be overwritten there.
 foreach { type handler } {
     tcl rp_handle_tcl_request
-    adp rp_handle_adp_request
     vuh rp_handle_tcl_request
 } {
     rp_register_extension_handler $type $handler
@@ -77,7 +111,7 @@ ad_after_server_initialization filters_register {
 
     set filter_index 0
     foreach filter_info $filters {
-	util_unlist $filter_info priority kind method path \
+	lassign $filter_info priority kind method path \
 		proc arg debug critical description script
 
 	# Figure out how to invoke the filter, based on the number of arguments.
@@ -90,7 +124,7 @@ ad_after_server_initialization filters_register {
 	    set arg_count [llength [info args $proc]]
 	}
 
-	if { $debug eq "t" } {
+	if { $debug == "t" } {
 	    set debug_p 1
 	} else {
 	    set debug_p 0
@@ -114,9 +148,9 @@ ad_after_server_initialization procs_register {
 
     set proc_index 0
     foreach proc_info $procs {
-	util_unlist $proc_info method path proc arg debug noinherit description script
+	lassign $proc_info method path proc arg debug noinherit description script
 
-	if { $noinherit eq "t" } {
+	if { $noinherit == "t" } {
 	    set noinherit_switch "-noinherit"
 	} else {
 	    set noinherit_switch ""
@@ -132,7 +166,7 @@ ad_after_server_initialization procs_register {
 	    set arg_count [llength [info args $proc]]
 	}
 
-	if { $debug eq "t" } {
+	if { $debug == "t" } {
 	    set debug_p 1
 	} else {
 	    set debug_p 0
@@ -143,4 +177,5 @@ ad_after_server_initialization procs_register {
 		[list $method $path rp_invoke_proc [list $proc_index $debug_p $arg_count $proc $arg]]
     }
 }
+
 
