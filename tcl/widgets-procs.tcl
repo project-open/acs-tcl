@@ -276,7 +276,7 @@ ad_proc ad_db_select_widget {
 	    }
 	} if_no_rows {
 	    if {$default ne ""} { 
-		return "<input type=\"hidden\" value=\"[ad_quotehtml $default]\" name=\"$name\">\n"
+		return "<input type=\"hidden\" value=\"[ns_quotehtml $default]\" name=\"$name\">\n"
 	    } else { 
 		return {}            
 	    }
@@ -284,7 +284,7 @@ ad_proc ad_db_select_widget {
     }
 
     if { $count == 1 || ($dbcount == 1 && $hidden_if_one_db) } {
-        return "$item<input type=\"hidden\" value=\"[ad_quotehtml $value]\" name=\"$name\">\n"
+        return "$item<input type=\"hidden\" value=\"[ns_quotehtml $value]\" name=\"$name\">\n"
     } elseif {!$count && !$dbcount && $blank_if_no_db} {
 	return {}
     } else { 
@@ -454,3 +454,9 @@ ad_proc ad_color_to_hex { triplet } {
     }
 }
 
+
+# Local variables:
+#    mode: tcl
+#    tcl-indent-level: 4
+#    indent-tabs-mode: nil
+# End:

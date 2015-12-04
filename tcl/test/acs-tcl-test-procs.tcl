@@ -123,8 +123,7 @@ aa_register_case -cats {api db smoke} apm__test_info_file {
 
 
     if { $error_p } {
-        global errorInfo
-        error "$error - $errorInfo"
+	error "$error - $::errorInfo"
     }
 }
 
@@ -163,8 +162,7 @@ aa_register_case -cats {api db smoke} apm__test_callback_get_set {
     apm_remove_callback_proc -package_key $package_key -type $callback_type
 
     if { $error_p } {
-        global errorInfo
-        error "$error - $errorInfo"
+	error "$error - $::errorInfo"
     }
 }
 
@@ -200,8 +198,7 @@ aa_register_case -cats {db api smoke} apm__test_callback_invoke {
     apm_remove_callback_proc -package_key $package_key -type $type
 
     if { $error_p } {
-        global errorInfo
-        error "$error - $errorInfo"
+	error "$error - $::errorInfo"
     }
 }
 
@@ -304,9 +301,8 @@ aa_register_case -cats {api smoke} text_to_html {
     set errno [catch { set text_version [ad_html_to_text -- $offending_post] } errmsg]
 
     if { ![aa_equals "Does not bomb" $errno 0] } {
-        global errorInfo
-        aa_log "errmsg: $errmsg"
-        aa_log "errorInfo: $errorInfo"
+                aa_log "errmsg: $errmsg"
+        aa_log "errorInfo: $::errorInfo"
     } else {
         aa_equals "Expected identical result" $text_version $offending_post
     }
@@ -368,9 +364,8 @@ anybody have any ideas?
     set errno [catch { set text_version [ad_html_to_text -- $offending_post] } errmsg]
 
     if { ![aa_equals "Does not bomb" $errno 0] } {
-        global errorInfo
         aa_log "errmsg: $errmsg"
-        aa_log "errorInfo: $errorInfo"
+        aa_log "errorInfo: $::errorInfo"
     } else {
         aa_log "Text version: $text_version"
     }
@@ -1019,7 +1014,12 @@ aa_register_case -cats {api db} db__caching {
 
 aa_register_case \
     -cats {api smoke} \
-    -procs {parameter::get parameter::get_from_package_key parameter::set_default parameter::set_default parameter::set_value parameter::set_from_package_key parameter::set_global_value parameter::get_global_value} \
+    -procs {
+	parameter::get parameter::get_from_package_key
+	parameter::set_default parameter::set_default
+	parameter::set_value parameter::set_from_package_key
+	parameter::set_global_value parameter::get_global_value
+    } \
     parameter__check_procs {
     Test the parameter::* procs
 
@@ -1036,7 +1036,7 @@ aa_register_case \
             apm_parameter_register -parameter_id $parameter_id -scope global x_test_x "" acs-tcl 0 number
             parameter::set_global_value -package_key acs-tcl -parameter x_test_x -value 3
             aa_equals "check global parameter value set/get" \
-		[parameter::get_global_value -package_key acs-tcl -parameter x_test_x]\
+		[parameter::get_global_value -package_key acs-tcl -parameter x_test_x] \
 		"3"
             apm_parameter_unregister $parameter_id
 
@@ -1046,18 +1046,17 @@ aa_register_case \
 		where
 		ap.package_key = apt.package_key
 		and apt.singleton_p ='t'
-		and ap.package_key <> 'acs-kernel'
+		and ap.package_key <> 'acs-kernel' and ap.package_key <> 'search'
 	    }] {
 
 		lassign $tuple parameter_name package_key default_value parameter_id
 		set value [random]
 		if {$parameter_name ne "PasswordExpirationDays" && $value > 0.7} {
 
-		    set package_id [apm_package_id_from_key $package_key]	    
+		    set package_id [apm_package_id_from_key $package_key]
 		    set actual_value [db_string real_value {
 			select apm_parameter_values.attr_value
-			from 
-			apm_parameter_values
+			from   apm_parameter_values
 			where apm_parameter_values.package_id = :package_id
 			and apm_parameter_values.parameter_id = :parameter_id
 		    }]
@@ -1133,3 +1132,9 @@ aa_register_case -cats {api smoke} acs_user__registered_user_p {
     aa_true "registered_user_p works correct" $works_p
 }
 
+
+# Local variables:
+#    mode: tcl
+#    tcl-indent-level: 4
+#    indent-tabs-mode: nil
+# End:

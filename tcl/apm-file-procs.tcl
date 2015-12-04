@@ -367,8 +367,7 @@ ad_proc -public apm_file_watchable_p { path } {
 
     # Check the db type
     set file_db_type [apm_guess_db_type $package_key $package_rel_path]
-    set right_db_type_p [expr {$file_db_type eq ""} || \
-                             [string equal $file_db_type [db_type]]]
+    set right_db_type_p [expr {$file_db_type eq "" || $file_db_type eq [db_type]}]
 
     # Check the file type
     set file_type [apm_guess_file_type $package_key $package_rel_path]
@@ -580,7 +579,7 @@ ad_proc -private apm_load_apm_file {
         apm_callback_and_log $callback "<li>Downloading $url..."
         if { [catch {apm_transfer_file -url $url -output_file_name $file_path} errmsg] } {
             apm_callback_and_log $callback "Unable to download. Please check your URL.</ul>.
-            The following error was returned: <blockquote><pre>[ad_quotehtml $errmsg]
+            The following error was returned: <blockquote><pre>[ns_quotehtml $errmsg]
             </pre></blockquote>"
             return
         }    
@@ -601,10 +600,9 @@ ad_proc -private apm_load_apm_file {
         apm_callback_and_log $callback  "<li>Done. Archive is [format %.1f [expr { [file size $file_path] / 1024.0 }]]KB, with [llength $files] files.<li>"
     } errmsg] } {
         apm_callback_and_log $callback "The follow error occured during the uncompression process:
-    <blockquote><pre>[ad_quotehtml $errmsg]</pre></blockquote><br>
+    <blockquote><pre>[ns_quotehtml $errmsg]</pre></blockquote><br>
     "
-        global errorInfo
-        ns_log Error "Error loading APM file form url $url: $errmsg\n$errorInfo"
+                ns_log Error "Error loading APM file form url $url: $errmsg\n$::errorInfo"
         return
     }
     
@@ -658,12 +656,11 @@ ad_proc -private apm_load_apm_file {
         file delete -force $tmpdir
         apm_callback_and_log $callback  "The archive contains an unparseable package specification file: 
     <code>$info_file</code>.  The following error was produced while trying to 
-    parse it: <blockquote><pre>[ad_quotehtml $errmsg]</pre></blockquote>.
+    parse it: <blockquote><pre>[ns_quotehtml $errmsg]</pre></blockquote>.
     <p>
     The package cannot be installed.
     </ul>\n"
-        global errorInfo
-        ns_log Error "Error loading APM file form url $url: Bad package .info file. $errmsg\n$errorInfo"
+                ns_log Error "Error loading APM file form url $url: Bad package .info file. $errmsg\n$::errorInfo"
         return
     }
     file delete -force $tmpdir

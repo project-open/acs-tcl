@@ -908,7 +908,14 @@ ad_proc -public apm_package_installed_p {
 ad_proc -private apm_package_installed_p_not_cached {
     package_key
 } {
-    return [db_string apm_package_installed_p {} -default 0]    
+    if {[catch {set installed_p [db_string apm_package_installed_p {
+        select 1 from apm_package_versions
+        where package_key = :package_key
+        and installed_p = 't'
+    } -default 0]}]} {
+        set installed_p 0
+    }
+    return $installed_p
 }
 
 ad_proc -public apm_package_enabled_p {
@@ -1232,8 +1239,12 @@ ad_proc -public apm_package_id_from_key {package_key} {
 } {
     set var ::apm::package_id_from_key($package_key)
     if {[info exists $var]} {return [set $var]}
-    set $var [util_memoize [list apm_package_id_from_key_mem $package_key]]
-    #set $var [ns_cache_eval ns:memoize apm_package_id_from_key_$package_key [list apm_package_id_from_key_mem $package_key]]
+    set result [util_memoize [list apm_package_id_from_key_mem $package_key]]
+    #set result [ns_cache_eval ns:memoize apm_package_id_from_key_$package_key [list apm_package_id_from_key_mem $package_key]]
+    if {$result != 0} {
+        set $var $result
+    }
+    return $result
 }
 
 ad_proc -private apm_package_id_from_key_mem {package_key} {
@@ -1863,8 +1874,9 @@ ad_proc -public apm_get_installed_provides {
         and    d.version_id = v.version_id
         and    v.enabled_p = 't'
     } {
-        if { ![info exists installed_provides($service_uri)] || \
-                 [apm_version_names_compare $installed_provides($service_uri) $service_version] == -1 } {
+        if { ![info exists installed_provides($service_uri)]
+             || [apm_version_names_compare $installed_provides($service_uri) $service_version] == -1
+         } {
             set installed_provides($service_uri) $service_version
         }
     }

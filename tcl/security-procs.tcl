@@ -550,12 +550,13 @@ ad_proc -private ad_login_page {} {
     Returns 1 if the page is used for logging in, 0 otherwise. 
 
 } {
-
     set url [ad_conn url]
-    if { [string match "*register/*" $url] || [string match "/index*" $url] || \
-             [string match "/index*" $url] || \
-             "/" eq $url || \
-             [string match "*password-update*" $url] } {
+    if { [string match "*register/*" $url]
+         || [string match "/index*" $url]
+         || [string match "/index*" $url]
+         || "/" eq $url
+         || [string match "*password-update*" $url]
+     } {
         return 1
     }
 
@@ -986,7 +987,7 @@ ad_proc -public ad_get_signed_cookie {
     lassign $cookie_value value signature
     ns_log Debug "ad_get_signed_cookie: Got signed cookie $name with value $value, signature $signature."
 
-    if { [ad_verify_signature $value $signature] } {
+    if { [ad_verify_signature -secret $secret $value $signature] } {
         ns_log Debug "ad_get_signed_cookie: Verification of cookie $name OK"
         return $value
     }
@@ -1016,7 +1017,7 @@ ad_proc -public ad_get_signed_cookie_with_expr {
     }
 
     lassign $cookie_value value signature
-    set expr_time [ad_verify_signature_with_expr $value $signature]
+    set expr_time [ad_verify_signature_with_expr -secret $secret $value $signature]
 
     ns_log Debug "Security: Done calling get_cookie $cookie_value for $name; received $expr_time expiration, getting $value and $signature."
 
@@ -1248,8 +1249,9 @@ ad_proc -private sec_lookup_property {
 } { 
 
     Used as a helper procedure for util_memoize to look up a
-    particular property from the database. Returns
-    [list $property_value $secure_p].
+    particular property from the database.
+
+    @return empty, when no property is recorded or a list containing property_value and secure_p
 
 } {
     if {
@@ -1287,7 +1289,7 @@ ad_proc -public ad_get_client_property {
     Looks up a property for a session. If $cache is true, will use the
     cached value if available. If $cache_only is true, will never
     incur a database hit (i.e., will only return a value if
-                          cached). If the property is secure, we must be on a validated session
+    cached). If the property is secure, we must be on a validated session
     over SSL.
 
     @param session_id controls which session is used
@@ -1308,7 +1310,7 @@ ad_proc -public ad_get_client_property {
     set cmd [list sec_lookup_property $id $module $name]
 
     if { $cache_only == "t" && ![util_memoize_cached_p $cmd] } {
-        return ""
+        return $default
     }
 
     if { $cache != "t" } {
@@ -1322,7 +1324,7 @@ ad_proc -public ad_get_client_property {
     lassign $property value secure_p
     
     if { $secure_p != "f" && ![security::secure_conn_p] } {
-        return ""
+        return $default
     }
 
     return $value
@@ -1717,8 +1719,8 @@ ad_proc -public security::locations {} {
     set host_post ""
 
     # set host_name
-    if {![regexp {(http://|https://)(.*?):(.*?)/?} [util_current_location] discard host_protocol host_name host_port]} {
-        regexp {(http://|https://)(.*?)/?} [util_current_location] discard host_protocol host_name
+    if {![regexp {(http://|https://)(.*?):(.*?)/?} [util_current_location] . host_protocol host_name host_port]} {
+        regexp {(http://|https://)(.*?)/?} [util_current_location] . host_protocol host_name
     }
 
     set driver_section [ns_driversection -driver $driver]
@@ -1727,7 +1729,7 @@ ad_proc -public security::locations {} {
     # not same as from config.tcl, may help with proxy issues etc
     set config_hostname [ns_config $driver_section hostname]
     if { $config_hostname ne $host_name } {
-        ns_log Warning "security::locations hostname '[ns_config $driver_section hostname]' from config.tcl does not match from util_current_location: $host_name"
+        ns_log notice "security::locations hostname '[ns_config $driver_section hostname]' from config.tcl does not match from util_current_location: $host_name"
     }
 
     # insecure locations
@@ -1785,7 +1787,7 @@ ad_proc -public security::locations {} {
                                       get_node_host_names "select host from host_node_map"]
     # fastest place for handling this special case:
     if { $config_hostname ne $host_name } {
-        ns_log Notice "security::locations adding $config_hostname since utl_current_location different than config.tcl."
+        #ns_log Notice "security::locations adding $config_hostname since utl_current_location different than config.tcl."
         lappend host_node_map_hosts_list $config_hostname
     }
     if { [llength $host_node_map_hosts_list] > 0 } {

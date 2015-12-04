@@ -68,7 +68,7 @@ ad_library {
 
 # (JoelA, 27 Dec 2004 - replaced example config.tcl with link)
 #
-# see http://openacs.org/doc/openacs-5-1/tutorial-second-database.html
+# see http://openacs.org/doc/openacs-5-1/tutorial-second-database
 # for config and usage examples
 
 # TODO: The "driverkey_" overrides in the config file are NOT
@@ -113,10 +113,12 @@ ad_library {
 # We now use the following global variables:
 #
 # Server-Wide NSV arrays, keys:
-#     db_default_database  .
 #     db_available_pools   $dbn
 #     db_driverkey         $dbn
 #     db_pool_to_dbn       $pool
+#
+# Global Variables
+#    ::acs::default_database
 #
 # Per-thread Tcl global variables:
 #   One Tcl Array per Database Name:
@@ -156,7 +158,7 @@ ad_proc -private db_state_array_name_is {
     @creation-date 2003/03/16
 } {
     if { $dbn eq "" } {
-        set dbn [nsv_get {db_default_database} .]
+        set dbn $::acs::default_database
     }
     return "db_state_${dbn}"
 }
@@ -195,6 +197,11 @@ ad_proc -private db_driverkey {
         }
     }
 
+    set key ::acs::db_driverkey($dbn)
+    if {[info exists $key]} {
+        return [set $key]
+    }
+
     if { ![nsv_exists db_driverkey $dbn] } {
         # This ASSUMES that any overriding of this default value via
         # "ns_param driverkey_dbn" has already been done:
@@ -224,7 +231,7 @@ ad_proc -private db_driverkey {
         nsv_set db_driverkey $dbn $driverkey
     }
 
-    return [nsv_get db_driverkey $dbn]
+    return [set $key [nsv_get db_driverkey $dbn]]
 }
 
 
@@ -293,7 +300,7 @@ ad_proc -public db_known_database_types {} {
     The nsv containing the list is initialized by the bootstrap script and should
     never be referenced directly by user code.
 } {
-    return [nsv_get ad_known_database_types .]
+    return $::acs::known_database_types
 }
 
 
@@ -357,7 +364,7 @@ ad_proc -public db_nextval {
 
     @param dbn The database name to use.  If empty_string, uses the default database.
 
-    @see <a href="/doc/db-api-detailed.html">/doc/db-api-detailed.html</a>
+    @see <a href="/doc/db-api-detailed">/doc/db-api-detailed</a>
 } {
     set driverkey [db_driverkey $dbn]
 
@@ -663,7 +670,7 @@ ad_proc -public db_exec_plsql {
 
     @param dbn The database name to use.  If empty_string, uses the default database.
 
-    @see <a href="/doc/db-api-detailed.html">/doc/db-api-detailed.html</a>
+    @see <a href="/doc/db-api-detailed">/doc/db-api-detailed</a>
 } {
     ad_arg_parser { bind_output bind } $args
 
@@ -1867,7 +1874,7 @@ ad_proc -public db_dml {{-dbn ""} statement_name sql args } {
 
     @param dbn The database name to use.  If empty_string, uses the default database.
 
-    @see <a href="/doc/db-api-detailed.html">/doc/db-api-detailed.html</a>
+    @see <a href="/doc/db-api-detailed">/doc/db-api-detailed</a>
 } {
     ad_arg_parser { clobs blobs clob_files blob_files bind } $args
     set driverkey [db_driverkey $dbn]
@@ -2536,7 +2543,7 @@ ad_proc -public db_source_sql_file {
             while { [gets $fp line] >= 0 } {
                 # Don't bother writing out lines which are purely whitespace.
                 if { ![string is space $line] } {
-                    apm_callback_and_log $callback "[ad_quotehtml $line]\n"
+                    apm_callback_and_log $callback "[ns_quotehtml $line]\n"
                 }
             }
             close $fp
@@ -2581,7 +2588,7 @@ ad_proc -public db_source_sql_file {
             while { [gets $fp line] >= 0 } {
                 # Don't bother writing out lines which are purely whitespace.
                 if { ![string is space $line] } {
-                    apm_callback_and_log $callback "[ad_quotehtml $line]\n"
+                    apm_callback_and_log $callback "[ns_quotehtml $line]\n"
                 }
             }
 
@@ -2604,8 +2611,9 @@ ad_proc -public db_source_sql_file {
             foreach line [split $error "\n"] {
                 if { [string first NOTICE $line] == -1 } {
                     append error_lines "$line\n"
-                    set error_found [expr { $error_found || [string first ERROR $line] != -1 || \
-                                                [string first FATAL $line] != -1 } ]
+                    set error_found [expr { $error_found
+                                            || [string first ERROR $line] != -1
+                                            || [string first FATAL $line] != -1 } ]
                 }
             }
 
@@ -2666,7 +2674,7 @@ ad_proc -public db_load_sql_data {
             while { [gets $fd line] >= 0 } {
                 # Don't bother writing out lines which are purely whitespace.
                 if { ![string is space $line] } {
-                    apm_callback_and_log $callback "[ad_quotehtml $line]\n"
+                    apm_callback_and_log $callback "[ns_quotehtml $line]\n"
                 }
             }
             close $fd
@@ -2711,7 +2719,7 @@ ad_proc -public db_load_sql_data {
             while { [gets $fp line] >= 0 } {
                 # Don't bother writing out lines which are purely whitespace.
                 if { ![string is space $line] } {
-                    apm_callback_and_log $callback "[ad_quotehtml $line]\n"
+                    apm_callback_and_log $callback "[ns_quotehtml $line]\n"
                 }
             }
 
@@ -2737,8 +2745,9 @@ ad_proc -public db_load_sql_data {
             foreach line [split $error "\n"] {
                 if { [string first NOTICE $line] == -1 } {
                     append error_lines "$line\n"
-                    set error_found [expr { $error_found || [string first ERROR $line] != -1 || \
-                                                [string first FATAL $line] != -1 } ]
+                    set error_found [expr { $error_found
+                                            || [string first ERROR $line] != -1
+                                            || [string first FATAL $line] != -1 } ]
                 }
             }
 
@@ -2777,13 +2786,13 @@ ad_proc -public db_source_sqlj_file {
     while { [gets $fp line] >= 0 } {
 	# Don't bother writing out lines which are purely whitespace.
 	if { ![string is space $line] } {
-	    apm_callback_and_log $callback "[ad_quotehtml $line]\n"
+	    apm_callback_and_log $callback "[ns_quotehtml $line]\n"
 	}
     }
     if { [catch {
 	close $fp
     } errmsg] } {
-	apm_callback_and_log $callback "[ad_quotehtml $errmsg]\n"
+	apm_callback_and_log $callback "[ns_quotehtml $errmsg]\n"
     }
 }
 
@@ -3532,3 +3541,9 @@ ad_proc -public db_bounce_pools {{-dbn ""}} {
         ns_db bouncepool $pool
     }
 }
+
+# Local variables:
+#    mode: tcl
+#    tcl-indent-level: 4
+#    indent-tabs-mode: nil
+# End:

@@ -76,7 +76,7 @@ ad_proc -public ad_text_to_html {
     # At this point, before inserting some of our own <, >, and "'s
     # we quote the ones entered by the user:
     if { !$no_quote_p } {
-        set text [ad_quotehtml $text]
+        set text [ns_quotehtml $text]
     }
 
     if { $encode_p} {
@@ -100,9 +100,11 @@ ad_proc -public ad_text_to_html {
             &uuml; &yacute; &thorn; &yuml; &iquest;
         }
 
-        for  { set i 0 }   { $i  < [ llength  $myChars ] }   { incr i }  {
-            set  text [ string map "[ lindex $myChars $i ] [ lindex  $myHTML  $i ]" $text ]
+        set map {}
+        foreach ch $myChars entity $myHTML {
+            lappend map $ch $entity
         }
+        set text [string map $map $text]
     }
 
     # Convert line breaks
@@ -200,7 +202,7 @@ ad_proc -public ad_unquotehtml {arg} {
 
     @see ad_quotehtml
 } {
-    return [string map {&gt; > &lt; < &quot; \" &amp; &} $arg]
+    return [string map {&amp; & &gt; > &lt; < &quot; \" &#34; \" &#39; '} $arg]
 }
 
 
@@ -210,12 +212,12 @@ ad_proc -public ad_unquotehtml {arg} {
 #
 ####################
 
+
 #
 # lars@pinds.com, 19 July 2000:
 # Should this proc change name to something in line with the rest
 # of the library?
 #
-
 ad_proc -private util_close_html_tags {
     html_fragment 
     {break_soft 0} 
@@ -255,8 +257,6 @@ ad_proc -private util_close_html_tags {
     @author Jeff Davis (davis@xarg.net)
     
 } {
-    set frag $html_fragment 
-
     # 
     # The code in this function had an exponential behavior based on
     # the size.  On the current OpenACS.org site (Jan 2009), the
@@ -285,22 +285,28 @@ ad_proc -private util_close_html_tags {
     # -gustaf neumann    (Jan 2009)
 
     if {$break_soft == 0 && $break_hard == 0} {
-      set frag [string map [list &# "&amp;#"] $html_fragment]
-      if {[catch {dom parse -html <body>$frag doc} errorMsg]} {
-        # we got an error, so do normal processing
-        #ns_log notice "tdom can't parse the provided HTML, error=$errorMsg,\nchecking fragment without tdom"
-      } else {
-        $doc documentElement root
-        set html ""
-        # discared forms
-        foreach node [$root selectNodes //form] {$node delete}
-        # output wellformed html
-        set b [lindex [$root selectNodes {//body}] 0]
-        foreach n [$b childNodes] {
-          append html [$n asHTML]
+        #
+        # We have to protect against crashes, that might happen due to
+        # unsupported numeric entities in tdom. Therefore, we map
+        # numeric entities into something sufficiently opaque
+        #
+        set frag [string map [list &# "\0&amp;#\0"] $html_fragment]
+        
+        if {[catch {dom parse -html <body>$frag doc} errorMsg]} {
+            # we got an error, so do normal processing
+            ns_log notice "tdom can't parse the provided HTML, error=$errorMsg,\nchecking fragment without tdom"
+        } else {
+            $doc documentElement root
+            set html ""
+            # discard forms
+            foreach node [$root selectNodes //form] {$node delete}
+            # output wellformed html
+            set b [lindex [$root selectNodes {//body}] 0]
+            foreach n [$b childNodes] {
+                append html [$n asHTML]
+            }
+            return [string map [list "\0&amp;#\0" &#] $html]
         }
-        return $html
-      }
     }
 
     set frag $html_fragment 
@@ -1102,12 +1108,12 @@ ad_proc -public ad_html_to_text {
         &uuml; &yacute; &thorn; &yuml; &iquest;
     }
 
-    for  { set i 0 }   { $i  < [ llength  $myHTML ] }   { incr i }  {
-        set output(text) [ string map "[ lindex $myHTML $i ] [ lindex  $myChars  $i ]" $output(text) ]
+    set map {}
+    foreach ch $myChars entity $myHTML {
+        lappend map $entity $ch
     }
-    #---
 
-    return $output(text)
+    return [string map $map $output(text)]
 }
 
 ad_proc -private ad_html_to_text_put_newline { output_var } {
@@ -1552,7 +1558,7 @@ ad_proc -public ad_html_text_convert {
             set text [string_truncate -ellipsis $ellipsis -more $more -len $truncate_len -- $text]
         }
     }
-    
+
     return $text
 }
 
@@ -1778,7 +1784,7 @@ ad_proc -deprecated -warn util_quotehtml { arg } {
 
     @see ad_quotehtml
 } {
-    return [ad_quotehtml $arg]
+    return [ns_quotehtml $arg]
 }
 
 ad_proc -deprecated util_quote_double_quotes {arg} {
@@ -1787,7 +1793,7 @@ ad_proc -deprecated util_quote_double_quotes {arg} {
 
     @see ad_quotehtml
 } {
-    return [ad_quotehtml $arg]
+    return [ns_quotehtml $arg]
 }
 
 ad_proc -deprecated philg_quote_double_quotes {arg} {
@@ -1796,5 +1802,11 @@ ad_proc -deprecated philg_quote_double_quotes {arg} {
 
     @see ad_quotehtml
 } {
-    return [ad_quotehtml $arg]
+    return [ns_quotehtml $arg]
 }
+
+# Local variables:
+#    mode: tcl
+#    tcl-indent-level: 4
+#    indent-tabs-mode: nil
+# End:

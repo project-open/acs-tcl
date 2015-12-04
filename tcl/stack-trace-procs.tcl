@@ -21,9 +21,8 @@ ad_proc -public ad_print_stack_trace {} {
     @see ad_get_tcl_call_stack
 } {
     uplevel {
-        global errorInfo
-        if {$errorInfo ne ""} { 
-            set callStack [list $errorInfo "invoked from within"]
+	if {$::errorInfo ne ""} { 
+            set callStack [list $::errorInfo "invoked from within"]
         } else { 
             set callStack {}
         }
@@ -46,3 +45,9 @@ ad_proc -public ad_log_stack_trace {} {
 } {
     ns_log Error [ad_print_stack_trace]
 }
+
+# Local variables:
+#    mode: tcl
+#    tcl-indent-level: 4
+#    indent-tabs-mode: nil
+# End:

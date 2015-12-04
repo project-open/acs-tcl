@@ -213,7 +213,7 @@ ad_proc -public ad_register_proc {
 } {
 
     Registers a procedure (see ns_register_proc for syntax). Use a
-    method of "*" to register GET, POST, and HEAD PUT DELETE filters. If debug is
+    method of "*" to register GET, POST, and HEAD filters. If debug is
     set to "t", all invocations of the procedure will be logged in the
     server log.
 
@@ -224,14 +224,14 @@ ad_proc -public ad_register_proc {
     if {$method eq "*"} {
         # Shortcut to allow registering filter for all methods. Just
         # call ad_register_proc again, with each of the three methods.
-        foreach method { GET POST HEAD PUT DELETE } {
+        foreach method { GET POST HEAD } {
             ad_register_proc -debug $debug -noinherit $noinherit $method $path $proc $arg
         }
         return
     }
 
     if {$method ni { GET POST HEAD PUT DELETE }} {
-        error "Method passed to ad_register_proc must be one of GET, POST, or HEAD PUT DELETE"
+        error "Method passed to ad_register_proc must be one of GET, POST, HEAD, PUT and DELETE"
     }
 
     set proc_info [list $method $path $proc $arg $debug $noinherit $description [info script]]
@@ -339,7 +339,7 @@ ad_proc -private rp_invoke_proc { conn argv } {
 ad_proc -private rp_finish_serving_page {} {
     global doc_properties
     if { [info exists doc_properties(body)] } {
-        rp_debug "Returning page:[info level [expr {[info level] - 1}]]: [ad_quotehtml [string range $doc_properties(body) 0 100]]"
+        rp_debug "Returning page:[info level [expr {[info level] - 1}]]: [ns_quotehtml [string range $doc_properties(body) 0 100]]"
         doc_return 200 text/html $doc_properties(body)
     }
 }
@@ -367,7 +367,7 @@ ad_proc -public ad_register_filter {
 
     @param kind Specify preauth, postauth or trace.
 
-    @param method Use a method of "*" to register GET, POST, and HEAD PUT DELETE
+    @param method Use a method of "*" to register GET, POST, and HEAD
     filters.
 
     @param priority Priority is an integer; lower numbers indicate
@@ -385,14 +385,14 @@ ad_proc -public ad_register_filter {
 } {
     if {$method eq "*"} {
         # Shortcut to allow registering filter for all methods.
-        foreach method { GET POST HEAD PUT DELETE } {
+        foreach method { GET POST HEAD } {
            ad_register_filter -debug $debug -priority $priority -critical $critical $kind $method $path $proc $arg
         }
         return
     }
 
-    if {$method ni { GET POST HEAD PUT DELETE }} {
-        error "Method passed to ad_register_filter must be one of GET, POST, or HEAD PUT DELETE"
+    if {$method ni { GET POST HEAD }} {
+        error "Method passed to ad_register_filter must be one of GET, POST, or HEAD"
     }
 
     # Append the filter to the list. The list will be sorted according to priority 
@@ -453,7 +453,7 @@ ad_proc -private rp_html_directory_listing { dir } {
 #
 # NSV arrays used by the request processor:
 #
-#   - rp_filters($method,$kind), where $method in (GET, POST, HEAD PUT DELETE)
+#   - rp_filters($method,$kind), where $method in (GET, POST, HEAD)
 #       and kind in (preauth, postauth, trace) A list of $kind filters
 #       to be considered for HTTP requests with method $method. The
 #       value is of the form
@@ -461,7 +461,7 @@ ad_proc -private rp_html_directory_listing { dir } {
 #             [list $priority $kind $method $path $proc $args $debug \
     #                 $critical $description $script]
 #
-#   - rp_registered_procs($method), where $method in (GET, POST, HEAD PUT DELETE)
+#   - rp_registered_procs($method), where $method in (GET, POST, HEAD)
 #         A list of registered procs to be considered for HTTP requests with
 #         method $method. The value is of the form
 #
@@ -515,10 +515,11 @@ ad_proc -private rp_resources_filter { why } {
     maximize throughput for resource files.  We just ns_returnfile the file, no
     permissions are checked, the ad_conn structure is not initialized, etc.
 
-    There are two mapping possibilities:
+    There are three mapping possibilities:
 
     /resources/package-key/* maps to root/packages/package-key/www/resources/*
 
+    If that fails, we map to root/packages/acs-subsite/www/resources/*
     If that fails, we map to root/www/resources/*
 
     If the file doesn't exist we'll log an error and return filter_ok, which will allow
@@ -534,12 +535,17 @@ ad_proc -private rp_resources_filter { why } {
         return [rp_serve_resource_file $path]
     }
 
-    set path "$::acs::rootdir/www/resources/[join [lrange [ns_conn urlv] 1 end] /]"
+    set path $::acs::rootdir/www/[ns_conn url]
+    if { [file isfile $path] } {
+        return [rp_serve_resource_file $path]
+    }
+    
+    set path [acs_package_root_dir acs-subsite]/www/[ns_conn url]
     if { [file isfile $path] } {
         return [rp_serve_resource_file $path]
     } 
 
-    ns_log Error "rp_sources_filter: file \"$path\" does not exists trying to serve as a normal request"
+    ns_log Warning "rp_sources_filter: file \"$path\" does not exists trying to serve as a normal request"
     return filter_ok
 }
 
@@ -775,13 +781,12 @@ ad_proc rp_report_error {
 
     Writes an error to the connection.
 
-    @param message The message to write (pulled from <code>$errorInfo</code> if none is specified).
+    @param message The message to write (pulled from <code>$::errorInfo</code> if none is specified).
 
 } {
     if { ![info exists message] } {
-        global errorInfo
-        # We need 'message' to be a copy, because errorInfo will get overridden by some of the template parsing below
-        set message $errorInfo
+                # We need 'message' to be a copy, because errorInfo will get overridden by some of the template parsing below
+        set message $::errorInfo
     }
     set error_url "[ad_url][ad_conn url]?[export_entire_form_as_url_vars]"
     #    set error_file [template::util::url_to_file $error_url]
@@ -827,9 +832,7 @@ ad_proc rp_report_error {
 
     ns_return 500 text/html $rendered_page
 
-    set headers [ns_conn headers]
-    ns_log Error "[ns_conn method] http://[ns_set iget $headers host][ns_conn url]?[ns_conn query]\
-	referred by '$prev_url'\n$error_message"
+    ad_log error $error_message
 }
 
 ad_proc -private rp_path_prefixes {path} {
@@ -1245,7 +1248,7 @@ ad_proc -public ad_acs_kernel_id {} {
 ad_proc -public ad_conn {args} {
 
     Returns a property about the connection. See the <a
-    href="/doc/request-processor.html">request
+    href="/doc/request-processor">request
     processor documentation</a> for an (almost complete) list of allowable values. 
 
     <p>
@@ -1520,7 +1523,7 @@ if { [apm_first_time_loading_p] } {
     # since we want it done really really early in the startup process. Don't
     # try this at home!
 
-    foreach method { GET POST HEAD PUT DELETE } { nsv_set rp_registered_procs $method [list] }
+    foreach method { GET POST HEAD } { nsv_set rp_registered_procs $method [list] }
 }
 
 
