@@ -8,6 +8,10 @@ ad_page_contract {
     @cvs-id $Id$
 } {
     {bug_number ""}
+    {prev_url "/intranet/"}
+    {user_id {[ad_conn user_id]}}
+    {error_file ""}
+    {error_url ""}
 }
 
 set show_patch_status open
