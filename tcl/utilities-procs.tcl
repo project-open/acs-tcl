@@ -2556,6 +2556,13 @@ ad_proc -public util_current_location {} {
     @author Lars Pind (lars@collaboraid.biz)
     @author Peter Marklund
 } {
+    # Did somebody set a specific redirection address?
+    # This may be useful with funky HTTPS/redirection settings.
+    set current_location [parameter::get_from_package_key -package_key "intranet-core" -parameter UtilCurrentLocationRedirect -default ""]
+    if {"" != $current_location} {
+        return $current_location
+    }
+
     set default_port(http) 80
     set default_port(https) 443
     
