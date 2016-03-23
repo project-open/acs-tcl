@@ -26,8 +26,25 @@ proc exec {args} {
     set procname [lindex $args 0]
     set args [lrange $args 1 end]
     set procname [file tail ${procname}]
-    set winaoldir $::env(AOLDIR)
-    set unixaoldir [string map {\\ /} ${winaoldir}]
+
+
+    # find out the base path
+    set unixaoldir ""
+    if {[info exists ::env(AOLDIR)]} {
+	set winaoldir $::env(AOLDIR)
+	set unixaoldir [string map {\\ /} ${winaoldir}]
+    } else {
+	set pageroot [acs_root_dir]
+	# Something like c:/project-open/servers/projop
+	set pageroot_pieces [split $pageroot "/"]
+	set pos [lsearch $pageroot_pieces "servers"]
+	if {$pos > 0} {
+	    set unixaoldir [join [lrange $pageroot_pieces 0 $pos-1] "/"]
+	}
+    }
+    ns_log Notice "exec: unixaoldir=$unixaoldir"
+
+
     if {[file exists ${unixaoldir}/bin/${procname}.exe]} {
       set procname ${unixaoldir}/bin/${procname}
     }
