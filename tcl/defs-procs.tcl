@@ -368,28 +368,36 @@ ad_proc -public ad_return_string_as_file {
 ad_proc -public ad_return_complaint {
     exception_count 
     exception_text
+    { show_master_p 1 }
+
 } {
+    Custom implementation of ad_return_complaint which allows for returning err msg only.
+    This allows new program paradigm to improve UX, e.g. HTML overlays (see ]po[ CRM module)
+
     Return a page complaining about the user's input 
     (as opposed to an error in our software, for which ad_return_error 
     is more appropriate)
 
     @param exception_count Number of exceptions. Used to say either 'a problem' or 'some problems'.
-
     @param exception_text HTML chunk to go inside an UL tag with the error messages.
+    @param show_master_p Indicates if master template should be applied
+
 } {
-    set complaint_template [parameter::get_from_package_key \
+    if { $show_master_p } {
+        set complaint_template [parameter::get_from_package_key \
 				-package_key "acs-tcl" \
 				-parameter "ReturnComplaint" \
 				-default "/packages/acs-tcl/lib/ad-return-complaint"]
-    ns_return 422 text/html [ad_parse_template \
+        ns_return 422 text/html [ad_parse_template \
                                  -params [list [list exception_count $exception_count] \
-                                              [list exception_text $exception_text]] \
-				 $complaint_template]
-				 
+                                         [list exception_text $exception_text]] \
+                                         $complaint_template]
+    } else {
+        ns_return 200 text/html "$exception_text<br/><br/><button onclick='javascript:window.history.back();'>[lang::message::lookup "" acs-tcl.GoBack "Go back"]</button>"
+    }
     # raise abortion flag, e.g., for templating
     set ::request_aborted [list 422 "Problem with Your Input"]
 }
-
 
 ad_proc ad_return_exception_page {
     status 
