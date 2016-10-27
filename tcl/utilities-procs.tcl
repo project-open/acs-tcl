@@ -2556,6 +2556,17 @@ ad_proc -public util_current_location {} {
     @author Lars Pind (lars@collaboraid.biz)
     @author Peter Marklund
 } {
+    # Debugging
+    if {0} {
+        set header_vars [ns_conn headers]
+        foreach var [ad_ns_set_keys $header_vars] {
+            set value [ns_set get $header_vars $var]
+            ns_log Notice "util_current_location: $var=$value"
+        }
+        ns_log Notice "util_current_location: ns_conn host=[ns_conn host]"
+        ns_log Notice "util_current_location: origin=[ns_set iget [ns_conn headers] Origin]"
+    }
+
     # Did somebody set a specific redirection address?
     # This may be useful with funky HTTPS/redirection settings.
     set current_location [parameter::get_from_package_key -package_key "intranet-core" -parameter UtilCurrentLocationRedirect -default ""]
@@ -2576,7 +2587,7 @@ ad_proc -public util_current_location {} {
 
     # Server config location
     if { ![regexp {^([a-z]+://)?([^:]+)(:[0-9]*)?$} [ad_conn location] match location_proto location_hostname location_port] } {
-        ns_log Error "util_current_location couldn't regexp '[ad_conn location]'"
+        ns_log Error "util_current_location: couldn't regexp '[ad_conn location]'"
     }
 
     if { $Host eq "" } {
