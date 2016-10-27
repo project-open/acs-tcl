@@ -1778,7 +1778,7 @@ ad_proc -public security::locations {} {
     set suppress_http_port [parameter::get -parameter SuppressHttpPort \
                                 -package_id [apm_package_id_from_key acs-tcl] \
                                 -default 0]
-    if { [info exists alt_insecure_location] && $suppress_http_port } {
+    if {0 && [info exists alt_insecure_location] && $suppress_http_port } {
         lappend locations $alt_insecure_location
     }
 
