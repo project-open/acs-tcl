@@ -2574,14 +2574,6 @@ ad_proc -public util_current_location {} {
     set Host [ns_set iget [ns_conn headers] Host]
     lassign [split $Host ":"] Host_hostname Host_port
 
-    # suppress the configured http port when server is behind a proxy, to keep connection behind proxy
-    set suppress_port [parameter::get -package_id [apm_package_id_from_key acs-tcl] -parameter SuppressHttpPort -default 0]
-    if { $suppress_port && $port eq [ns_config -int "ns/server/[ns_info server]/module/nssock" Port] } {
-        ns_log Debug "util_current_location: suppressing http port $Host_port"
-        set Host_port ""
-        set port ""
-    }
-
     # Server config location
     if { ![regexp {^([a-z]+://)?([^:]+)(:[0-9]*)?$} [ad_conn location] match location_proto location_hostname location_port] } {
         ns_log Error "util_current_location couldn't regexp '[ad_conn location]'"
@@ -2604,7 +2596,18 @@ ad_proc -public util_current_location {} {
         set proto https
         set port $default_port($proto)
     }
-    
+
+
+    # suppress the configured http port when server is behind a proxy, to keep connection behind proxy
+    set suppress_port [parameter::get -package_id [apm_package_id_from_key acs-tcl] -parameter SuppressHttpPort -default 0]
+    if { 0 && $suppress_port && $port eq [ns_config -int "ns/server/[ns_info server]/module/nssock" Port] } {
+        ns_log Debug "util_current_location: suppressing http port $Host_port"
+        set port ""
+    }
+
+    ns_log Debug "util_current_location: proto=$proto, hostname=$hostname, port=$port"
+
+
     if { $port ne "" && $port ne $default_port($proto) } {
         return "$proto://$hostname:$port"
     } else {
