@@ -38,7 +38,7 @@
 <input type=submit name=submit value="Report this Error">
 <br>
 <input type=checkbox name=privacy_statement_p checked>
-I agree with the <a href="http://www.project-open.com/en/legal-note">privacy statement</a>.
+I agree with the <a href="http://www.project-open.com/en/legal-note" target="_">privacy statement</a>.
 <br>
 <input type=hidden name=error_url value=@error_url@>
 <input type=hidden name=error_location value=@error_location@>
