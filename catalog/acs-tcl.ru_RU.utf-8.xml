@@ -7,7 +7,7 @@
   <msg key="approve_email">утвердить электронный почтовый адрес</msg>
   <msg key="ban">запретить</msg>
   <msg key="Browser_of_the_user">Броузер пользователя:</msg>
-  <msg key="Comments">&lt;b&gt; Комментарии: &lt;/b&gt;&lt;br&gt; &lt;span style=&quot;color:red;&quot;&gt; (Пожалуйста, объясните, что вы пытались сделать) &lt;/span&gt;</msg>
+  <msg key="Comments">&lt;b&gt; Комментарии: &lt;/b&gt;&lt;br&gt; &lt;span style=&#34;color:red;&#34;&gt; (Пожалуйста, объясните, что вы пытались сделать) &lt;/span&gt;</msg>
   <msg key="delete">удалить</msg>
   <msg key="Detais">Подробности:</msg>
   <msg key="Email">Эл.почта:</msg>
@@ -20,10 +20,10 @@
   <msg key="File">Файл с ошибкой:</msg>
   <msg key="Insert_error">В процессе добавления информации в базу данных произошла ошибка:</msg>
   <msg key="lt__and_resubmit_your_en">, и повторно предоставьте вашу запись.</msg>
-  <msg key="lt_Argspec_element_is_in">Спецификация аргумента '%element%' недействительна, так как содержит более двух элементов.</msg>
+  <msg key="lt_Argspec_element_is_in">Спецификация аргумента &#39;%element%&#39; недействительна, так как содержит более двух элементов.</msg>
   <msg key="lt_Automatically_Submite">Ошибка передаётся автоматически</msg>
   <msg key="lt_Error_Report_in_ad_sy">Отчёт об ошибках %system_name%</msg>
-  <msg key="lt_Filter_type_must_be_f">Тип фильтра должен быть 'filter' или 'post'</msg>
+  <msg key="lt_Filter_type_must_be_f">Тип фильтра должен быть &#39;filter&#39; или &#39;post&#39;</msg>
   <msg key="lt_Flag_name_must_be_a_v">Имя флага должно содержать действительный индентификатор</msg>
   <msg key="lt_Flag_names_must_be_al">Все имена флагов должны быть набраны строчными буквами</msg>
   <msg key="lt_Invalid_date_date_ele">Недействительные данные: %date_element% отсутствует</msg>
@@ -37,7 +37,7 @@
   <msg key="lt_Invalid_time_timetime">Неверное время: %time(time)% неверный формат</msg>
   <msg key="lt_Invalid_time_timetime_1">Неверное время: %time(time)% %time(ampm)%</msg>
   <msg key="lt_Invalid_time_timetime_2">Неверное время: %time(time)%</msg>
-  <msg key="lt_Multiple_definitions_">Множественные определения ad_page_contract фильтра \&quot;%name%\&quot; в %script% и %prior_script%</msg>
+  <msg key="lt_Multiple_definitions_">Множественные определения ad_page_contract фильтра \&#34;%name%\&#34; в %script% и %prior_script%</msg>
   <msg key="lt_name_contains_invalid">%name% содержит недействительные символы</msg>
   <msg key="lt_name_does_not_appear_">%name% не выглядит как корректный адрес электронной почты.</msg>
   <msg key="lt_name_does_not_appear__1">%name% не соответствует формату телефонных номеров, принятому в России. </msg>
@@ -57,27 +57,27 @@
   <msg key="lt_Problem_with_a_Templa">Проблема со страницей шаблона</msg>
   <msg key="lt_Problem_with_your_inp">Проблема с правильностью вашего ввода</msg>
   <msg key="lt_require_email_verific">требуется подтверждение по электронной почте</msg>
-  <msg key="lt_The_-requires_element">Элемент -requires \&quot;%element%\&quot; содержит запятую. </msg>
-  <msg key="lt_The_-requires_element_1">Элемент -requires \&quot;%element%\&quot; содержит слишком много двоеточий</msg>
+  <msg key="lt_The_-requires_element">Элемент -requires \&#34;%element%\&#34; содержит запятую. </msg>
+  <msg key="lt_The_-requires_element_1">Элемент -requires \&#34;%element%\&#34; содержит слишком много двоеточий</msg>
   <msg key="lt_The_email_you_submit">Пожалуйста, введите достоверный электронный почтовый адрес. </msg>
-  <msg key="lt_The_flag_name_name_is">Флаг с именем \&quot;%name%\&quot; зарезервирован для ad_page_contract</msg>
+  <msg key="lt_The_flag_name_name_is">Флаг с именем \&#34;%name%\&#34; зарезервирован для ad_page_contract</msg>
   <msg key="lt_The_proc_must_accept_">Процедура должна принять два аргумента - имя переменной и список фильтров</msg>
-  <msg key="lt_The_signature_for_the">Подпись для переменной  '%formal_name%' была некорректна.</msg>
+  <msg key="lt_The_signature_for_the">Подпись для переменной  &#39;%formal_name%&#39; была некорректна.</msg>
   <msg key="lt_User_Id_of_the_user_t">Идентификатор пользователя:</msg>
   <msg key="lt_Valid_switches_are_-r">Правильные переключатели: -requires</msg>
   <msg key="lt_Validation_block_name">Блок проверки имён не может содержать двоеточие</msg>
-  <msg key="lt_Validation_key_compla">Сомнение в действительности \&quot;%key%\&quot;</msg>
+  <msg key="lt_Validation_key_compla">Сомнение в действительности \&#34;%key%\&#34;</msg>
   <msg key="lt_value_does_not_appear">%value% не соответствует формату телефонных номеров действующих в США.</msg>
   <msg key="lt_Value_for_name_contai">Значение для %name% содержит HTML теги. </msg>
   <msg key="lt_Value_is_not_an_decim">Значение не является десятичным числом. </msg>
   <msg key="lt_Value_is_not_an_integ">Значение не является целым числом.</msg>
   <msg key="lt_We_had_a_problem_proc">У нас возникли проблемы с обработкой вашего запроса</msg>
-  <msg key="lt_You_cant_have_two_val">Вы не можете иметь два проверочных блока с именем '%name%'</msg>
+  <msg key="lt_You_cant_have_two_val">Вы не можете иметь два проверочных блока с именем &#39;%name%&#39;</msg>
   <msg key="lt_You_cant_name_your_va">Вы не можете назвать ваш проверочный блок также, как формальный аргумент</msg>
   <msg key="lt_You_must_specify_some">Вы должны указать что-нибудь для %formal_name%</msg>
   <msg key="lt_You_must_supply_a_val">Вы должны указать значение для %formal_name%</msg>
   <msg key="lt_You_specified_a_path_">Вы указали путь до файла, который не разрешён в системе.</msg>
-  <msg key="lt_Youve_supplied_two_va">Вы установили два значения для '%formal_name%'</msg>
+  <msg key="lt_Youve_supplied_two_va">Вы установили два значения для &#39;%formal_name%&#39;</msg>
   <msg key="maturity_deprecated">Не рекомендовано</msg>
   <msg key="maturity_immature">Не доработан</msg>
   <msg key="maturity_incompatible">Проблемы совместимости</msg>
