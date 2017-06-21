@@ -793,7 +793,6 @@ ad_proc -private apm_package_install {
         }
 
         # Move the package into the packages dir        
-        #exec "mv" "$package_path" "$::acs::rootdir/packages"
         file rename $package_path $::acs::rootdir/packages
 
         # We moved the spec file, so update its path
