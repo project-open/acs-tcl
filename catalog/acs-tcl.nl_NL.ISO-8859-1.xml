@@ -2,6 +2,7 @@
 <message_catalog package_key="acs-tcl" locale="nl_NL" charset="ISO-8859-1">
 
   <msg key="a_problem">een probleem</msg>
+  <msg key="Administration">Administratie</msg>
   <msg key="approve">goedkeuren</msg>
   <msg key="approve_email">e-mail goedkeuren</msg>
   <msg key="ban">uitsluiten</msg>
@@ -82,6 +83,8 @@
   <msg key="maturity_mature_and_standard">Produktierijp en standaard.</msg>
   <msg key="maturity_new_submission">Nieuw ingezonden of produktierijpheid niet bekend</msg>
   <msg key="Page">Pagina met fout:</msg>
+  <msg key="Page_current_of_total">Pagina %current% van %total%</msg>
+  <msg key="Percentage_complete">Percentage compleet</msg>
   <msg key="Previus">Vorige fout:</msg>
   <msg key="Public_User">Publieke gebruiker</msg>
   <msg key="reject">weigeren</msg>
