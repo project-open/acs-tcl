@@ -93,7 +93,7 @@
   <msg key="reject">Ablehnen</msg>
   <msg key="Report">Fehler melden</msg>
   <msg key="Return_prev">Zu der Seite zurückgehen, auf der ich vor dem Fehler war</msg>
-  <msg key="Server">Server Error</msg>
+  <msg key="Server">Fehler auf der Serverseite</msg>
   <msg key="some_problems">einige Probleme</msg>
   <msg key="Sorry">Entschuldigen Sie bitte!</msg>
   <msg key="Success_error_submitted">Der Fehler wurde an die Entwickler berichtet</msg>
