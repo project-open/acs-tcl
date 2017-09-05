@@ -19,7 +19,7 @@
   <msg key="errors">fouten</msg>
   <msg key="File">Bestand met fout:</msg>
   <msg key="Insert_error">Er is een fout opgetreden bij het invoegen van de gegevens in de databank.</msg>
-  <msg key="lt__and_resubmit_your_en">, en dien uw lid opnieuw in</msg>
+  <msg key="lt__and_resubmit_your_en">, en dien uw invoer opnieuw in</msg>
   <msg key="lt_Argspec_element_is_in">Argspec &#39;%element%&#39; is ongeldig omdat het meer dan twee elementen bevat</msg>
   <msg key="lt_Automatically_Submite">Fout automatisch ingestuurd</msg>
   <msg key="lt_Error_Report_in_ad_sy">Foutrapport in %system_name%</msg>
@@ -38,11 +38,13 @@
   <msg key="lt_Invalid_time_timetime_1">Ongeldige tijd: %time(time)% %time(ampm)%</msg>
   <msg key="lt_Invalid_time_timetime_2">Ongeldige tijd %time(time)%</msg>
   <msg key="lt_Multiple_definitions_">Meerdere definities van ad_page_contract_filter \&#34;%name%\&#34; in %script% en %prior_script%</msg>
+  <msg key="lt_name_contains_invalid">%name% bevat ongeldige tekens</msg>
   <msg key="lt_name_does_not_appear_">%name% ziet er niet uit als een geldig e-mailadres</msg>
   <msg key="lt_name_does_not_appear__1">%name% ziet er niet uit als een Amerikaans telefoonnummer</msg>
   <msg key="lt_name_does_not_appear__2">%name% ziet er niet uit als een booleaanse waarde</msg>
   <msg key="lt_name_is_not_a_natural">%name% ziet er niet uit als een natuurlijk getal, dat is, een geheel getal groter dan 0.</msg>
   <msg key="lt_name_is_not_a_valid_S">%name% is geen geldig SQL-symbool</msg>
+  <msg key="lt_name_is_not_a_word">%name% bevat vreemde karakters</msg>
   <msg key="lt_name_is_not_an_intege">%naam% is geen geheel getal</msg>
   <msg key="lt_name_is_not_in_the_ra">%name% zit niet in het bereik  [%min%..%max%]</msg>
   <msg key="lt_name_is_too_long__Ple">%name% is te lang. Geef alstublieft een waarde van minimaal %max_length% tekens lang in. De waarde die u ingaf was %actual_length% tekens lang.</msg>
@@ -77,6 +79,7 @@
   <msg key="lt_You_must_supply_a_val">U moet een waarde opgeven voor %formal_name%</msg>
   <msg key="lt_You_specified_a_path_">U heeft een pad naar een bestand opgegeven dat niet toegestaan op het systeem is.</msg>
   <msg key="lt_Youve_supplied_two_va">U hebt twee waarden voor &#39;%formal_name%&#39; opgegeven.</msg>
+  <msg key="maturity_deprecated">Verouderd</msg>
   <msg key="maturity_immature">Nog niet rijp voor produktie</msg>
   <msg key="maturity_incompatible">Compatibiliteitsproblemen</msg>
   <msg key="maturity_mature">Rijp voor produktie</msg>

@@ -20,7 +20,7 @@
   <msg key="lt__and_resubmit_your_en">, i ponownie wyślij Twój wpis.</msg>
   <msg key="lt_Automatically_Submite">Błąd Wysłany Automatycznie</msg>
   <msg key="lt_Error_Report_in_ad_sy">Raport Błędów w %system_name%</msg>
-  <msg key="lt_Filter_type_must_be_f">Typu filtru musi być 'filer' lub 'post'</msg>
+  <msg key="lt_Filter_type_must_be_f">Typu filtru musi być &#39;filer&#39; lub &#39;post&#39;</msg>
   <msg key="lt_Flag_name_must_be_a_v">Nazwa flagi musi byc prawidłowym identyfikatorem</msg>
   <msg key="lt_Flag_names_must_be_al">Nazwy flag mogą zawierać tylko małe litery</msg>
   <msg key="lt_Invalid_date_date_ele">Błędna data: brak elementu %date_element%</msg>
@@ -29,7 +29,14 @@
   <msg key="lt_Invalid_time_timetime">Błędny czas: %time(time)% ma błędny format</msg>
   <msg key="lt_name_does_not_appear_">%name% nie jest prawidłowym adresem email</msg>
   <msg key="lt_name_does_not_appear__1">%name% nie jest prawidłowym numerem telefonu w USA</msg>
+  <msg key="lt_Please_back_up_using_">Cofnij się w przeglądarce i popraw powyższy</msg>
+  <msg key="lt_Problem_with_your_inp">Problem z twoimi danymi</msg>
   <msg key="lt_require_email_verific">wymagaj potwierdzenia emailem</msg>
+  <msg key="lt_Value_for_name_contai">Wartość %name% zawiera tagi HTML</msg>
+  <msg key="lt_You_must_supply_a_val">Musisz podać wartość %formal_name%</msg>
   <msg key="reject">odrzuć</msg>
+  <msg key="Thank_you">Dziękujemy</msg>
   <msg key="undelete">przywróć</msg>
+  <msg key="We_had">Mieliśmy</msg>
+  <msg key="with_your_input">z twoimi danymi:</msg>
 </message_catalog>
