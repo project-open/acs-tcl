@@ -18,7 +18,7 @@
   <msg key="Error_Report">Fehler Report</msg>
   <msg key="errors">Fehler</msg>
   <msg key="File">Datei mit Fehler:</msg>
-  <msg key="Insert_error">Bei der Einfügung der Information in die Datenbank trat ein Fehler:</msg>
+  <msg key="Insert_error">Ein Fehler trat auf beim &#39;Insert&#39; der Daten in die Datenbank:</msg>
   <msg key="lt__and_resubmit_your_en"> und wiederholen Ihre Eingabe.</msg>
   <msg key="lt_Argspec_element_is_in">Die Spezifikation des Arguments &#39;%element%&#39; is ungültig, weil es mehr als zwei Elemente enthält</msg>
   <msg key="lt_Automatically_Submite">Fehler automatisch gemeldet</msg>
@@ -99,7 +99,7 @@
   <msg key="Success_error_submitted">Der Fehler wurde an die Entwickler berichtet</msg>
   <msg key="Thank_you">Danke!</msg>
   <msg key="The">Der Fehler war der folgende:</msg>
-  <msg key="There">Es gab einen Server Error während Ihre Anfrage bearbeitet wurde. Wir entschuldigen uns!</msg>
+  <msg key="There">Es gab einen Server Error, während Ihre Anfrage bearbeitet wurde. Wir entschuldigen uns!</msg>
   <msg key="There_1">Es gab einen Server Error</msg>
   <msg key="This">Diese Datei hat einen Fehler erzeugt.</msg>
   <msg key="undelete">Wiederherstellen</msg>
