@@ -335,6 +335,12 @@ ad_proc -public ad_user_logout {} {
     ad_unset_cookie -domain $domain -secure t ad_secure_token
     ad_unset_cookie -domain $domain -secure t ad_user_login
     ad_unset_cookie -domain $domain -secure t ad_user_login_secure
+
+    ad_unset_cookie -domain $domain -secure f ad_session_id
+    ad_unset_cookie -domain $domain -secure f ad_secure_token
+    ad_unset_cookie -domain $domain -secure f ad_user_login
+    ad_unset_cookie -domain $domain -secure f ad_user_login_secure
+
 }
 
 ad_proc -public ad_check_password { 
