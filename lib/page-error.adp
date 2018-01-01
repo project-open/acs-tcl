@@ -22,7 +22,7 @@
 <% set last_name "undefined" %>
 <% set email "undefined" %>
 <% set username "undefined" %>
-<% db_0or1row user_info "select * from cc_users where user_id=[ad_get_user_id]" %>
+<% db_0or1row user_info "select * from cc_users where user_id=[auth::require_login]" %>
 <% set publisher_name [parameter::get -package_id [ad_acs_kernel_id] -parameter PublisherName -default ""] %>
 <% set package_versions [db_list package_versions "select v.package_key||':'||v.version_name from (select max(version_id) as version_id, package_key from apm_package_versions group by package_key) m, apm_package_versions v where m.version_id = v.version_id"] %>
 <% set system_id [im_system_id] %>

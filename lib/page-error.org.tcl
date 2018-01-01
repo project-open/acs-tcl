@@ -16,7 +16,7 @@ set error_info $stacktrace
 set comment_action 0
 
 if {![info exists prev_url]} { set prev_url "/intranet" }
-if {![info exists user_id]} { set user_id [ad_get_user_id] }
+if {![info exists user_id]} { set user_id [auth::require_login] }
 if {![info exists error_file]} { set error_file "undefined" }
 if {![info exists error_url]} { set error_url "undefined" }
 
