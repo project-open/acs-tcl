@@ -14,7 +14,7 @@
 
 
 <% set error_url [im_url_with_query] %>
-<% set error_location "[ns_info address] on [ns_info platform]" %>
+<% set error_location "[ns_info address] on $::tcl_platform(platform)" %>
 <% set report_url [parameter::get -package_id [im_package_core_id] -parameter "ErrorReportURL" -default ""] %>
 <% set report_url [parameter::get -package_id [im_package_core_id] -parameter "ErrorReportURL" -default ""] %>
 <% set system_url [parameter::get -package_id [ad_acs_kernel_id] -parameter SystemURL -default ""] %>
