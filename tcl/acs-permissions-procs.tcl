@@ -177,6 +177,8 @@ ad_proc -public permission::require_permission {
         set party_id [ad_conn user_id]
     }
 
+    if {$party_id eq ""} { set party_id 0 }
+
     if {![permission_p -party_id $party_id -object_id $object_id -privilege $privilege]} {
         if {!${party_id}} {
             auth::require_login
