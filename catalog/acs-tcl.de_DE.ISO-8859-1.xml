@@ -10,15 +10,15 @@
   <msg key="Comments"> &lt;b&gt; Kommentare: &lt;/b&gt;&lt;br&gt; &lt;span style=&#34;color:red;&#34;&gt; (Bitte erläutern Sie warum sie dies machen wollen) &lt;/span&gt;</msg>
   <msg key="delete">Löschen</msg>
   <msg key="Detais">Details:</msg>
-  <msg key="Email">E-Mail:</msg>
+  <msg key="Email">e-Mail:</msg>
   <msg key="Error">Fehlerbeschreibung</msg>
   <msg key="error">Fehler</msg>
   <msg key="Error_Description">Fehlerbeschreibung</msg>
-  <msg key="Error_details">Fehlerdetails</msg>
+  <msg key="Error_details">Fehler Details</msg>
   <msg key="Error_Report">Fehler Report</msg>
   <msg key="errors">Fehler</msg>
   <msg key="File">Datei mit Fehler:</msg>
-  <msg key="Insert_error">Ein Fehler trat auf beim &#39;Insert&#39; der Daten in die Datenbank:</msg>
+  <msg key="Insert_error">Bei der Einfügung der Information in die Datenbank trat ein Fehler:</msg>
   <msg key="lt__and_resubmit_your_en"> und wiederholen Ihre Eingabe.</msg>
   <msg key="lt_Argspec_element_is_in">Die Spezifikation des Arguments &#39;%element%&#39; is ungültig, weil es mehr als zwei Elemente enthält</msg>
   <msg key="lt_Automatically_Submite">Fehler automatisch gemeldet</msg>
@@ -59,7 +59,7 @@
   <msg key="lt_require_email_verific">E-Mail-Verifizierung anfordern</msg>
   <msg key="lt_The_-requires_element">Das -requires element \&#34;%element%\&#34; enthält ein Komma.</msg>
   <msg key="lt_The_-requires_element_1">Das -requires element \&#34;%element%\&#34; hat zu viele Doppelpunkte</msg>
-  <msg key="lt_The_email_you_submit">Bitte geben Sie eine gültige E-Mail-Adresse ein.</msg>
+  <msg key="lt_The_email_you_submit">Bitte geben Sie eine gültige e-Mail Adresse ein.</msg>
   <msg key="lt_The_flag_name_name_is">Der Namen der Markierung \&#34;%name%\&#34; ist für ad_page_contract reserviert</msg>
   <msg key="lt_The_proc_must_accept_">Die Prozedur muss zwei Argumente akzeptieren, den Namen der Variablen und eine Liste von Filtern</msg>
   <msg key="lt_The_signature_for_the">Die Signatur für die Variable &#39;%formal_name%&#39; war nicht korrekt.</msg>
@@ -93,13 +93,13 @@
   <msg key="reject">Ablehnen</msg>
   <msg key="Report">Fehler melden</msg>
   <msg key="Return_prev">Zu der Seite zurückgehen, auf der ich vor dem Fehler war</msg>
-  <msg key="Server">Fehler auf der Serverseite</msg>
+  <msg key="Server">Server Error</msg>
   <msg key="some_problems">einige Probleme</msg>
   <msg key="Sorry">Entschuldigen Sie bitte!</msg>
   <msg key="Success_error_submitted">Der Fehler wurde an die Entwickler berichtet</msg>
   <msg key="Thank_you">Danke!</msg>
   <msg key="The">Der Fehler war der folgende:</msg>
-  <msg key="There">Es gab einen Server Error, während Ihre Anfrage bearbeitet wurde. Wir entschuldigen uns!</msg>
+  <msg key="There">Es gab einen Server Error während Ihre Anfrage bearbeitet wurde. Wir entschuldigen uns!</msg>
   <msg key="There_1">Es gab einen Server Error</msg>
   <msg key="This">Diese Datei hat einen Fehler erzeugt.</msg>
   <msg key="undelete">Wiederherstellen</msg>
