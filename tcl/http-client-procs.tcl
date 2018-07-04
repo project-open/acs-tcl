@@ -1090,7 +1090,7 @@ ad_proc -private util::http::curl::request {
     
     ## Issuing of the request
 
-    set cmd [list exec curl -s]
+    set cmd [list exec curl -s -k1]
 
     if {$spool_p} {
         set spool_file [ad_tmpnam]
