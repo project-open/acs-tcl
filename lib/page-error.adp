@@ -1,3 +1,25 @@
+<%
+# Write out HTTP headers
+set header_vars [ns_conn headers]
+set electron_agent_p 0
+foreach var [ad_ns_set_keys $header_vars] {
+    set value [ns_set get $header_vars $var]
+    ns_log Notice "page-error: header: $var: $value"
+
+    if {"User-Agent" eq $var} {
+	if {[regexp {Electron/2} $value match]} { set electron_agent_p 1 }
+    }
+}
+%>
+
+<if 1 eq @electron_agent_p@>
+
+<if @top_message@ not nil>@top_message;noquote@</if>
+<if @message@ not nil    >@message;noquote@</if>
+<if @stacktrace@ not nil >@stacktrace;noquote@</if>
+
+</if>
+<else>
 <!-- This page goes into /packages/apm-tcl/lib/page-error.adp -->
 <master>
 <property name="doc(title)">#acs-tcl.Server#</property>
@@ -12,10 +34,8 @@
 </else>
 </p>
 
-
 <% set error_url [im_url_with_query] %>
 <% set error_location "[ns_info address] on $::tcl_platform(platform)" %>
-<% set report_url [parameter::get -package_id [im_package_core_id] -parameter "ErrorReportURL" -default ""] %>
 <% set report_url [parameter::get -package_id [im_package_core_id] -parameter "ErrorReportURL" -default ""] %>
 <% set system_url [parameter::get -package_id [ad_acs_kernel_id] -parameter SystemURL -default ""] %>
 <% set first_names "undefined" %>
@@ -92,5 +112,7 @@ I agree with the <a href="http://www.project-open.com/en/legal-note" target="_">
 </else>
 
 
+<!-- if not electron -->
+</else>
 
 
