@@ -2,11 +2,11 @@
 <message_catalog package_key="acs-tcl" locale="de_DE" charset="ISO-8859-1">
 
   <msg key="a_problem">Ein Problem</msg>
-  <msg key="Administration">Admin</msg>
+  <msg key="Administration">Administration</msg>
   <msg key="approve">Freischalten</msg>
   <msg key="approve_email">E-Mail-Adresse bestätigen</msg>
   <msg key="ban">Deaktivieren</msg>
-  <msg key="Browser_of_the_user">Browser des Benutzers:</msg>
+  <msg key="Browser_of_the_user">Der Browser des Users:</msg>
   <msg key="Comments"> &lt;b&gt; Kommentare: &lt;/b&gt;&lt;br&gt; &lt;span style=&#34;color:red;&#34;&gt; (Bitte erläutern Sie warum sie dies machen wollen) &lt;/span&gt;</msg>
   <msg key="delete">Löschen</msg>
   <msg key="Detais">Details:</msg>
@@ -38,15 +38,16 @@
   <msg key="lt_Invalid_time_timetime_1">Ungültige Zeit: %time(time)% %time(ampm)%</msg>
   <msg key="lt_Invalid_time_timetime_2">Ungültige Zeit: %time(time)%</msg>
   <msg key="lt_Multiple_definitions_">Mehrere Definitionen des ad_page_contract Filters \&#34;%name%\&#34; in %script% and %prior_script%</msg>
-  <msg key="lt_name_contains_invalid">%name% enthält ungültige Buchstaben</msg>
+  <msg key="lt_name_contains_invalid">%name% enthält ungültige Zeichen</msg>
   <msg key="lt_name_does_not_appear_">%name% scheint keine gültige e-Mail Adresse zu sein.</msg>
   <msg key="lt_name_does_not_appear__1">%name% scheint keine gültige US-Telefonnummer zu sein.</msg>
   <msg key="lt_name_does_not_appear__2">%name% scheint kein Boolean Wert zu sein.</msg>
   <msg key="lt_name_is_not_a_natural">%name% ist keine natürliche Zahl, die eine ganzzahlige Zahl größer oder gleich 0 ist.</msg>
   <msg key="lt_name_is_not_a_valid_S">%name% ist kein gültiger  SQL Identifikator</msg>
-  <msg key="lt_name_is_not_a_word">%name% ist nicht ein Wort</msg>
+  <msg key="lt_name_is_not_a_word">%name% enthält nicht-alphabetische Zeichen</msg>
   <msg key="lt_name_is_not_an_intege">%name% ist keine ganzzahlige Zahl</msg>
   <msg key="lt_name_is_not_in_the_ra">%name% ist nicht im Bereich von [%min%, %max%]</msg>
+  <msg key="lt_name_is_not_valid">%name% ist ungültig</msg>
   <msg key="lt_name_is_too_long__Ple">%name% ist zu lang. Bitte geben Sie einen Wert ein, der höchstens %max_length% Buchstaben hat. Der Wert, den Sie eingegeben haben, ist %actual_length% Buchstaben lang.</msg>
   <msg key="lt_name_is_too_long__Ple_1">%name% ist zu lang. Bitte geben Sie einen Wert ein der mindestens %min_length% Zeichen lang  ist. Der Wert den Sie eingeben haben, ist %actual_length% Zeichen lang.</msg>
   <msg key="lt_name_is_too_short__Pl">%name% ist zu kurz. Bitte geben Sie einen Wert ein, der mindestens %min_length% Zeichen lang  ist. Der Wert den Sie eingegeben haben, ist %actual_length% Zeichen lang.</msg>
@@ -64,7 +65,7 @@
   <msg key="lt_The_proc_must_accept_">Die Prozedur muss zwei Argumente akzeptieren, den Namen der Variablen und eine Liste von Filtern</msg>
   <msg key="lt_The_signature_for_the">Die Signatur für die Variable &#39;%formal_name%&#39; war nicht korrekt.</msg>
   <msg key="lt_Theres_no_greble_with">Es gibt kein &#34;greble&#34; bei diesem Wert</msg>
-  <msg key="lt_User_Id_of_the_user_t">Benutzer ID:</msg>
+  <msg key="lt_User_Id_of_the_user_t">User ID:</msg>
   <msg key="lt_Valid_switches_are_-r">Gültige Parameter sind: &#39;-requires&#39;</msg>
   <msg key="lt_Validation_block_name">Prüfblock Namen können keine Doppelpunkte enthalten</msg>
   <msg key="lt_Validation_key_compla">Prüfung von &#34;%key%&#34; gab einen Fehler</msg>
@@ -87,9 +88,9 @@
   <msg key="maturity_new_submission">Neues Paket oder unbekannter Reifegrad</msg>
   <msg key="Page">Seite mit Fehler:</msg>
   <msg key="Page_current_of_total">Seite %current% von %total%</msg>
-  <msg key="Percentage_complete">Prozent fertig</msg>
+  <msg key="Percentage_complete">Prozentsatz abgeschlossen</msg>
   <msg key="Previus">Vorhergehende Seite:</msg>
-  <msg key="Public_User">Öffentlicher Benutzer</msg>
+  <msg key="Public_User">Öffentlicher (nicht registrierter) User </msg>
   <msg key="reject">Ablehnen</msg>
   <msg key="Report">Fehler melden</msg>
   <msg key="Return_prev">Zu der Seite zurückgehen, auf der ich vor dem Fehler war</msg>
@@ -103,8 +104,8 @@
   <msg key="There_1">Es gab einen Server Error</msg>
   <msg key="This">Diese Datei hat einen Fehler erzeugt.</msg>
   <msg key="undelete">Wiederherstellen</msg>
-  <msg key="User_comments">Kommentare des Benutzers:</msg>
-  <msg key="User_Name">Benutzer Name:</msg>
+  <msg key="User_comments">Kommentare des Users:</msg>
+  <msg key="User_Name">User Name:</msg>
   <msg key="We">Wir würden es begrüßen, wenn sie einige Details dessen,m was Sie gerade zu tun versuchten, spezifizieren könnten.</msg>
   <msg key="We_had">Wir hatten</msg>
   <msg key="with_your_input">mit ihrer Eingabe:</msg>
