@@ -2754,7 +2754,7 @@ ad_proc -public util_current_location {} {
         #
         # We are running behind a proxy
         #
-        if {[ad_conn behind_secure_proxy_p]} {
+        if {"1" eq [ad_conn behind_secure_proxy_p]} {
             #
             # We know, the request was an https request
             #
