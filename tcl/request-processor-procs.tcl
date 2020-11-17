@@ -1625,7 +1625,8 @@ ad_proc -public ad_conn {args} {
                             #
                             set ad_conn(behind_secure_proxy_p) 0
                             if {[ad_conn behind_proxy_p]} {
-                                set ad_conn(behind_secure_proxy_p) [expr 1 == [ns_set iget [ns_conn headers] X-SSL-Request]]
+                                set x_ssl_p [ns_set iget [ns_conn headers] X-SSL-Request]
+                                set ad_conn(behind_secure_proxy_p) [expr {1 eq $x_ssl_p}]
                             }
                             return $ad_conn(behind_secure_proxy_p)
                         }
