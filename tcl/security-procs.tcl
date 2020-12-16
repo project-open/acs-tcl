@@ -2283,20 +2283,17 @@ namespace eval ::security::csp {
         #
         # Add 'self' rules
         #
-        security::csp::require base-uri 'self'
-
-        security::csp::require default-src 'self'
-
         # Fraber 2020-12-15 after going though https://csp-evaluator.withgoogle.com/
-#        security::csp::require script-src 'self'
-        security::csp::require script-src 'unsafe-inline'
 
+        security::csp::require base-uri 'self'
+        security::csp::require default-src 'self'
+        security::csp::require script-src 'self'
+        security::csp::require script-src 'unsafe-inline'
         security::csp::require style-src 'self'
         security::csp::require img-src 'self'
         security::csp::require font-src 'self'
         security::csp::require frame-src 'self'
         security::csp::require frame-src "*.project-open.net"
-
         security::csp::require object-src 'none'
 
         #
