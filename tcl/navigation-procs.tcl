@@ -568,7 +568,7 @@ proc menu_submenu_select_list {items urls {highlight_url "" }} {
 #              </FORM></TD></TR>
 #          </TABLE>"
 #     } else {
-# 	append return_string "<A href=\"JavaScript: document.SearchDirect.submit();\" onMouseOver=\"hiLite('go')\" onMouseOut=\"unhiLite('go')\" alt=\"search\"><img name=\"go\" src=\"/graphics/go.gif\" border=0 width=32 height=24 align=top alt=\"go\"></A>
+# 	append return_string "<A href=\"\"></A>
 # 	</FORM></TD></TR>
 #          </TABLE></TD>
 #    </TR>
