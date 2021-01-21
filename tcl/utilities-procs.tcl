@@ -2714,6 +2714,16 @@ ad_proc -public util_current_location {} {
     @see ad_url
     @see ad_conn
 } {
+    # Debugging
+    if {1} {
+        set header_vars [ns_conn headers]
+        foreach var [ad_ns_set_keys $header_vars] {
+            set value [ns_set get $header_vars $var]
+            ns_log Notice "util_current_location: $var=$value"
+        }
+        ns_log Notice "util_current_location: ns_conn host=[ns_conn host]"
+        ns_log Notice "util_current_location: origin=[ns_set iget [ns_conn headers] Origin]"
+    }
 
     #
     # Compute util_current_location only once per request and cache
@@ -2722,58 +2732,69 @@ ad_proc -public util_current_location {} {
     if {[info exists ::__util_current_location]} {
         return $::__util_current_location
     }
-    
+
+    #
+    # Did somebody set a specific redirection address?
+    # This may be useful with funky HTTPS/redirection settings.
+    set current_location [parameter::get_from_package_key -package_key "intranet-core" -parameter UtilCurrentLocationRedirect -default ""]
+    if {"" != $current_location} {
+        return $current_location
+    }
+
     set default_port(http) 80
     set default_port(https) 443
+
+    util_driver_info -array driver
+    set proto $driver(proto)
+    set port $driver(port)
+    
+    # This is the host from the browser's HTTP request
+    set Host [ns_set iget [ns_conn headers] Host]
+    lassign [split $Host ":"] Host_hostname Host_port
+
+    #
+    # Server config location
+    if { ![regexp {^([a-z]+://)?([^:]+)(:[0-9]*)?$} [ad_conn location] match location_proto location_hostname location_port] } {
+        ns_log Error "util_current_location: couldn't regexp '[ad_conn location]'"
+    }
+
+    if {$Host eq ""} {
+        # No Host header, return protocol from driver, hostname from [ad_conn location], and port from driver
+        set hostname $location_hostname
+    } else {
+        set hostname $Host_hostname
+        if { $Host_port ne "" } { set port $Host_port }
+    }
+
+    if { [ns_config "ns/parameters" ReverseProxyMode false]
+         && [ns_set ifind [ad_conn headers] X-Forwarded-For] > -1
+         && [ns_set iget [ad_conn headers] X-SSL-Request] == 1
+     } {
+        set proto https
+        set port $default_port($proto)
+    }
+
     #
     # The package parameter "SuppressHttpPort" might be set when the
     # server is behind a proxy to hide the internal port.
     #
-    set suppress_port [parameter::get \
-                           -package_id [apm_package_id_from_key acs-tcl] \
-                           -parameter SuppressHttpPort \
-                           -default 0]
-    #
-    # Obtain the information from ns_conn based on the actual driver
-    # handling the current request.  The obtained variables "proto",
-    # "hostname" and "port" will be the default and might be
-    # overwritten by more specific information.
-    #
-    if {![util::split_location [ns_conn location] proto hostname port]} {
-        ns_log Error "util_current_location got invalid information from driver '[ns_conn location]'"
-        # provide fallback info
-        set hostname [ns_info hostname]
-        set proto ""
-    }
+    set suppress_port [parameter::get -package_id [apm_package_id_from_key acs-tcl] -parameter SuppressHttpPort -default 0]
+
     if {$proto eq ""} {
         set proto http
         set port  $default_port($proto)
     }
 
-    if { [ad_conn behind_proxy_p] } {
-        #
+    if {[ad_conn behind_proxy_p]} {
         # We are running behind a proxy
-        #
         if {"1" eq [ad_conn behind_secure_proxy_p]} {
-            #
             # We know, the request was an https request
-            #
             set proto https
         }
-        #
         # reset to the default port
-        #
         set port $default_port($proto)
     }
-    
-    #
-    # If we want to allow developers to access the backend server
-    # directly (not via the proxy), the clause above does not fire,
-    # although "ReverseProxyMode" was set, since there is no
-    # "X-Forwarded-For".  The usage of "SuppressHttpPort" would not
-    # allow this use case.
-    #
-    
+        
     #
     # In case the "Host:" header field was provided, use the "hostame"
     # and maybe the "port" from there (this has the highest priority)
@@ -2799,7 +2820,7 @@ ad_proc -public util_current_location {} {
     }
 
     set ::__util_current_location $result
-    #ns_log notice "util_current_location returns <$result> based on hostname <$hostname>"
+    ns_log Notice "util_current_location returns <$result> based on hostname <$hostname>"
     return $result
 }
 
