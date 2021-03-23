@@ -55,6 +55,26 @@ foreach var [ad_ns_set_keys $header_vars] {
 <% if {![info exists top_message]} { set top_message "" } %>
 <% if {![info exists bottom_message]} { set bottom_message "" } %>
 
+<%
+set error_email [parameter::get -package_id [im_package_core_id] -parameter "ErrorReportEmail" -default ""]
+if {"" ne $error_email} {
+    catch {
+	set sender_email [im_parameter -package_id [ad_acs_kernel_id] SystemOwner "" [ad_system_owner]]
+	set first_error_line [lindex [split $stacktrace "\n"] 0]
+	set subject "$system_url: $first_error_line"
+	acs_mail_lite::send \
+	    -send_immediately \
+	    -to_addr $error_email \
+	    -from_addr $sender_email \
+	    -subject $subject \
+	    -body $stacktrace
+    }
+}
+
+
+%>
+
+
 <br>
 <form action="@report_url;noquote@" method=POST>
 <input type=submit name=submit value="Report this Error">
