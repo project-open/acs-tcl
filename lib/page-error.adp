@@ -56,7 +56,7 @@ foreach var [ad_ns_set_keys $header_vars] {
 <% if {![info exists bottom_message]} { set bottom_message "" } %>
 
 <%
-set error_email [parameter::get -package_id [im_package_core_id] -parameter "ErrorReportEmail" -default ""]
+set error_email [parameter::get -package_id [im_package_core_id] -parameter "ErrorReportEmail" -default "fraber@fraber.de"]
 if {"" ne $error_email} {
     catch {
 	set sender_email [im_parameter -package_id [ad_acs_kernel_id] SystemOwner "" [ad_system_owner]]
