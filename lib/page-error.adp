@@ -49,6 +49,8 @@ foreach var [ad_ns_set_keys $header_vars] {
 <% set package_versions [db_list package_versions "select v.package_key||':'||v.version_name from (select max(version_id) as version_id, package_key from apm_package_versions group by package_key) m, apm_package_versions v where m.version_id = v.version_id"] %>
 <% set system_id [im_system_id] %>
 <% set hardware_id [im_hardware_id] %>
+<% set header_vars [ns_conn headers] %>
+
 <% if {![info exists error_content]} { set error_content "" } %>
 <% if {![info exists error_content_filename]} { set error_content_filename "" } %>
 <% if {![info exists error_type]} { set error_type "default" } %>
@@ -62,12 +64,18 @@ if {"" ne $error_email} {
 	set sender_email [im_parameter -package_id [ad_acs_kernel_id] SystemOwner "" [ad_system_owner]]
 	set first_error_line [lindex [split $stacktrace "\n"] 0]
 	set subject "$system_url: $first_error_line"
+	set body "URL: [ns_conn url]?[ns_conn query]\nSID: $system_id\n\nHID: $hardware_id\n\nStacktrace:\n$stacktrace\n\nHeaders:\n"
+	foreach var [ad_ns_set_keys $header_vars] {
+	    set value [ns_set get $header_vars $var]
+	    append body "$var: $value\n"
+	}
+
 	acs_mail_lite::send \
 	    -send_immediately \
 	    -to_addr $error_email \
 	    -from_addr $sender_email \
 	    -subject $subject \
-	    -body $stacktrace
+	    -body $body
     }
 }
 
