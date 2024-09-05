@@ -2699,7 +2699,6 @@ ad_proc -public util::configured_location {} {
 }
 
 ad_proc -public util_current_location {} {
-    
     Like [ad_conn location] - Returns the location string of the
     current request in the form protocol://hostname?:port? but it
     looks at the "Host:" header field, that is, takes into account the
@@ -2715,7 +2714,7 @@ ad_proc -public util_current_location {} {
     @see ad_conn
 } {
     # Debugging
-    if {1} {
+    if {0} {
         set header_vars [ns_conn headers]
         foreach var [ad_ns_set_keys $header_vars] {
             set value [ns_set get $header_vars $var]
