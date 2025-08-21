@@ -2582,7 +2582,7 @@ ad_proc -public util_driver_info {
 
     switch -glob -- $driver {
         nsudp* -
-        nssock* {
+        http - nssock* {
             set d [list proto http port [ns_config -int $section Port]] 
         }
         nsunix {
