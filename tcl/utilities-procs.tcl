@@ -2631,7 +2631,18 @@ ad_proc util::split_location {location protoVar hostnameVar portVar} {
 } {
     upvar $protoVar proto $hostnameVar hostname $portVar port
 
-    set urlInfo [ns_parseurl $location]
+    # Fraber 2025-08-21: ns_parseurl fails for "http://192.168.0.39::8000/" for example
+    if {[catch {
+        set urlInfo [ns_parseurl $location]
+    } err_msg]} {
+        ns_log Error "split_location: Error executing ns_parseurl: $err_msg"
+        set proto "http"
+        set hostname "localhost"
+        set port 80
+        set success 0
+        return $success
+    }
+    
     if {[dict exists $urlInfo proto] && [dict exists $urlInfo host]} {
         set proto [dict get $urlInfo proto]
         set hostname [dict get $urlInfo host]
