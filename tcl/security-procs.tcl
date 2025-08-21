@@ -1785,7 +1785,9 @@ ad_proc -public security::driver {} {
     return $::acs::sdriver
 }
 
-if {[info commands ns_driver] ne ""} {
+# Fraber 2025-08-21: There are issues with ns_parseurl
+# So this has to be disabled for ]po[ t work on NavsiServer 5.0
+if {0 && [info commands ns_driver] ne ""} {
     
     ad_proc -private security::configured_driver_info {} {
         
